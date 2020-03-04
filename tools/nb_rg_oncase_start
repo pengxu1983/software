@@ -1,5 +1,6 @@
 #!/home/benpeng/nbifweb_client/software/node/bin/node
 let process = require('process');
+let fs = require('fs');
 console.log(process.argv);
 let str = '{';
 for (let i=3;i<process.argv.length;i++){
@@ -7,7 +8,12 @@ for (let i=3;i<process.argv.length;i++){
   str += ',';
 }
 str += '}';
-console.log(str);
+let text = str;
+fs.writeFileSync(process.argv[2]+'/abc',text,{
+  encoding  : 'utf8',
+  mode      : '0600',
+  flag      : 'w'
+})
 let lines = fs.readFileSync(process.argv[2]+'/NBIF_TREE_INFO','utf8').split('\n');
 lines.pop();
 let regx01  = /(\w+):::(\S+)/;
