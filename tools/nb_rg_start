@@ -7,7 +7,7 @@ let http            = require('http');
 //let child_process   = require('child_process');
 //let cronJob         = require("cron").CronJob;
 const postData = querystring.stringify({
-  'treeRoot': '/proj/cip_floyd_genz/ip_regression/nbif.regression.main.rembrandt.nbif_draco_gpu.group1.1'
+  'treeRoot': '/proj/cip_floyd_genz/ip_regression/nbif.regression.branch.mi200.nbif_nv10_gpu.group1.1'
 });
 
 const options = {
