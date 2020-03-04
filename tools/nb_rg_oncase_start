@@ -2,12 +2,41 @@
 let process = require('process');
 console.log(process.argv);
 let str = '{';
-for (let i=2;i<process.argv.length;i++){
+for (let i=3;i<process.argv.length;i++){
   str += process.argv[i];
   str += ',';
 }
 str += '}';
 console.log(str);
+let lines = fs.readFileSync(process.argv[2]+'/NBIF_TREE_INFO','utf8').split('\n');
+lines.pop();
+let regx01  = /(\w+):::(\S+)/;
+let projectname;
+let shelve;
+let kickoffdate;
+let variantname;
+let isBAPU;
+for(let l=0;l<lines.length;l++){
+  lines[l].replace(regx01,function(rs,$1,$2){
+    sails.log($1,$2);
+    if($1 == 'projectname'){
+      projectname = $2;
+    }
+    if($1 == 'shelve'){
+      shelve  = $2;
+    }
+    if($1 == 'kickoffdate'){
+      kickoffdate = $2;
+    }
+    if($1 == 'variantname'){
+      variantname = $2;
+    }
+    if($1 == 'isBAPU'){
+      isBAPU  = $2;
+    }
+  });
+}
+
 //let querystring     = require('querystring');
 //let http            = require('http');
 //let fs              = require('fs');
