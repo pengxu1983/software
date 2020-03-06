@@ -27,7 +27,7 @@ let branch_name;
 let changelist;
 for(let l=0;l<lines.length;l++){
   lines[l].replace(regx01,function(rs,$1,$2){
-    sails.log($1,$2);
+    console.log($1,$2);
     if($1 == 'projectname'){
       projectname = $2;
     }
@@ -65,6 +65,12 @@ let onecase = {
   seed        : process.argv[3],
 };
 console.log(onecase);
+fs.writeFileSync('def',JSON.stringify(onecase),{
+  encoding  : 'utf8',
+  mode      : '0600',
+  flag      : 'w'
+  
+});
 //let querystring     = require('querystring');
 //let http            = require('http');
 //let fs              = require('fs');
