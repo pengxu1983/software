@@ -8,6 +8,7 @@ for (let i=3;i<process.argv.length;i++){
   str += ',';
 }
 str += '}';
+
 let lines = fs.readFileSync('./NBIF_TREE_INFO','utf8').split('\n');
 lines.pop();
 let regx01  = /(\w+):::(\S+)/;
@@ -56,10 +57,10 @@ let onecase = {
   isBAPU      : isBAPU,
   shelve      : shelve,
   testname    : process.argv[2],
-  seed        : process.argv[3],
+  outdir      : process.argv[3]
 };
 console.log(onecase);
-fs.writeFileSync('startlog',JSON.stringify(onecase),{
+fs.writeFileSync('endlog',JSON.stringify(onecase),{
   encoding  : 'utf8',
   mode      : '0600',
   flag      : 'w'
