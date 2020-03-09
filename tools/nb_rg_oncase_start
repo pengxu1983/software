@@ -3,7 +3,6 @@ let querystring     = require('querystring');
 let http            = require('http');
 let fs              = require('fs');
 let child_process   = require('child_process');
-let cronJob         = require("cron").CronJob;
 let process = require('process');
 console.log(process.argv);
 let str = '{';
