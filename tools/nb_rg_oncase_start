@@ -4,6 +4,7 @@ let http            = require('http');
 let fs              = require('fs');
 let child_process   = require('child_process');
 let process = require('process');
+
 console.log(process.argv);
 let str = '{';
 for (let i=3;i<process.argv.length;i++){
@@ -61,41 +62,58 @@ let onecase = {
   testname    : process.argv[2],
   seed        : process.argv[3],
 };
-console.log(onecase);
-fs.writeFileSync('startlog',JSON.stringify(onecase),{
-  encoding  : 'utf8',
-  mode      : '0600',
-  flag      : 'w'
-});
-const postData = querystring.stringify(onecase);
-
-const options = {
-  hostname: 'localhost',
-  port: 9001,
-  path: '/try/onecasestart',
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Content-Length': Buffer.byteLength(postData)
+require("jsdom").env("", function(err, window) {
+  if (err) {       
+    console.error(err);       
+    return;
   }
-};
-
-const req = http.request(options, (res) => {
-  console.log(`STATUS: ${res.statusCode}`);
-  console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-  res.setEncoding('utf8');
-  res.on('data', (chunk) => {
-    console.log(`BODY: ${chunk}`);
-  });
-  res.on('end', () => {
-    console.log('No more data in response.');
-  });
+  var $ = require("jquery")(window);
 });
+//var send = async function (onecase){
+//  return new Promise(function(resolve){
+//    
+//    console.log(onecase);
+//    fs.writeFileSync('startlog',JSON.stringify(onecase),{
+//      encoding  : 'utf8',
+//      mode      : '0600',
+//      flag      : 'w'
+//    });
+//    let postData = querystring.stringify(onecase);
+//    
+//    let options = {
+//      hostname: 'localhost',
+//      port: 9001,
+//      path: '/try/onecasestart',
+//      method: 'POST',
+//      headers: {
+//        'Content-Type': 'application/x-www-form-urlencoded',
+//        'Content-Length': Buffer.byteLength(postData)
+//      }
+//    };
+//    
+//    let req = http.request(options, (res) => {
+//      console.log(`STATUS: ${res.statusCode}`);
+//      console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+//      res.setEncoding('utf8');
+//      res.on('data', (chunk) => {
+//        console.log(`BODY: ${chunk}`);
+//      });
+//      res.on('end', () => {
+//        console.log('No more data in response.');
+//        resolve('done');
+//      });
+//    });
+//    
+//    req.on('error', (e) => {
+//      console.error(`problem with request: ${e.message}`);
+//    });
+//    
+//    // Write data to request body
+//    req.write(postData);
+//    req.end();
+//  });
+//}
+//console.log('start');
+//await send();
+//console.log('end');
 
-req.on('error', (e) => {
-  console.error(`problem with request: ${e.message}`);
-});
-
-// Write data to request body
-req.write(postData);
-req.end();
