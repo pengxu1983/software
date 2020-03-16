@@ -53,67 +53,52 @@ lines[0].replace(regx01,function(rs,$1,$2,$3){
 });
 let onecase = {
   codeline  : codeline,
+  branch_name : branch_name,
+  changelist  : changelist,
   projectname : projectname,
   variantname : variantname,
-  branch_name : branch_name,
   kickoffdate : kickoffdate,
   isBAPU      : isBAPU,
   shelve      : shelve,
   testname    : process.argv[2],
   seed        : process.argv[3],
 };
-require("jsdom").env("", function(err, window) {
-  if (err) {       
-    console.error(err);       
-    return;
-  }
-  var $ = require("jquery")(window);
-});
-//var send = async function (onecase){
-//  return new Promise(function(resolve){
-//    
-//    console.log(onecase);
-//    fs.writeFileSync('startlog',JSON.stringify(onecase),{
-//      encoding  : 'utf8',
-//      mode      : '0600',
-//      flag      : 'w'
-//    });
-//    let postData = querystring.stringify(onecase);
-//    
-//    let options = {
-//      hostname: 'localhost',
-//      port: 9001,
-//      path: '/try/onecasestart',
-//      method: 'POST',
-//      headers: {
-//        'Content-Type': 'application/x-www-form-urlencoded',
-//        'Content-Length': Buffer.byteLength(postData)
-//      }
-//    };
-//    
-//    let req = http.request(options, (res) => {
-//      console.log(`STATUS: ${res.statusCode}`);
-//      console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-//      res.setEncoding('utf8');
-//      res.on('data', (chunk) => {
-//        console.log(`BODY: ${chunk}`);
-//      });
-//      res.on('end', () => {
-//        console.log('No more data in response.');
-//        resolve('done');
-//      });
-//    });
-//    
-//    req.on('error', (e) => {
-//      console.error(`problem with request: ${e.message}`);
-//    });
-//    
-//    // Write data to request body
-//    req.write(postData);
-//    req.end();
-//  });
-//}
-//console.log('start');
-//await send();
-//console.log('end');
 
+console.log(onecase);
+fs.writeFileSync('startlog',JSON.stringify(onecase),{
+  encoding  : 'utf8',
+  mode      : '0600',
+  flag      : 'w'
+});
+let postData = querystring.stringify(onecase);
+
+let options = {
+  hostname: 'ltipc969',
+  port: 9001,
+  path: '/try/onecasestart',
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Content-Length': Buffer.byteLength(postData)
+  }
+};
+
+let req = http.request(options, (res) => {
+  console.log(`STATUS: ${res.statusCode}`);
+  console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+  res.setEncoding('utf8');
+  res.on('data', (chunk) => {
+    console.log(`BODY: ${chunk}`);
+  });
+  res.on('end', () => {
+    console.log('No more data in response.');
+  });
+});
+
+req.on('error', (e) => {
+  console.error(`problem with request: ${e.message}`);
+});
+
+// Write data to request body
+req.write(postData);
+req.end();
