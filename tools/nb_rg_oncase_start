@@ -65,11 +65,11 @@ let onecase = {
 };
 
 console.log(onecase);
-fs.writeFileSync('startlog',JSON.stringify(onecase),{
-  encoding  : 'utf8',
-  mode      : '0600',
-  flag      : 'w'
-});
+//fs.writeFileSync('startlog',JSON.stringify(onecase),{
+//  encoding  : 'utf8',
+//  mode      : '0600',
+//  flag      : 'w'
+//});
 let postData = querystring.stringify(onecase);
 
 let options = {

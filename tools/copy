@@ -1,0 +1,6 @@
+#!/tool/pandora64/bin/expect
+spawn scp benpeng@atlibex-neu0450:/proj/cip_floyd_genz/ip_regression/nbif.regression.main.floyd.nbif_et_0.group1.1/abc /local_vol1_nobackup/benpeng/.
+expect "*Password:" { 
+  send "4rfv^YHN\r"
+  expect eof
+}
