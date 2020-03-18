@@ -20,6 +20,7 @@ let isBAPU;
 let codeline;
 let branch_name;
 let changelist;
+let testname = process.argv[2];
 for(let l=0;l<lines.length;l++){
   lines[l].replace(regx01,function(rs,$1,$2){
     console.log($1,$2);
@@ -48,6 +49,31 @@ lines[0].replace(regx01,function(rs,$1,$2,$3){
   branch_name = $2;
   changelist  = $3;
 });
+let outdir  = process.argv[3];
+let result  = '';
+if(fs.existsSync(outdir+'/REGRESS_PASS')){
+  result  = 'PASS';
+}
+else{
+  result  = 'RUNNING';
+  let regx02 = /SvtTestEpilog: (\w+)/;
+  if(fs.existsSync(outdir+'/vcs_run.log')){
+    lines = fs.readFileSync(outdir+'/vcs_run.log','utf8').split('\n');
+    lines.pop();
+    for(let l=0;l<lines.length;l++){
+      if(lines[l].test(regx02)){
+        lines[l].replace(regx02,function(rs,$1){
+          if($1  == 'Passed'){
+            result  = "PASS";
+          }
+          else if($1  == 'Failed'){
+            result  = 'FAIL';
+          }
+        });
+      }
+    }
+  }
+}
 let onecase = {
   codeline  : codeline,
   projectname : projectname,
@@ -56,15 +82,14 @@ let onecase = {
   kickoffdate : kickoffdate,
   isBAPU      : isBAPU,
   shelve      : shelve,
-  testname    : process.argv[2],
-  outdir      : process.argv[3]
+  testname    : testname,
+  result      : result
 };
 console.log(onecase);
 fs.writeFileSync('endlog',JSON.stringify(onecase),{
   encoding  : 'utf8',
   mode      : '0600',
   flag      : 'w'
-  
 });
 //let querystring     = require('querystring');
 //let http            = require('http');
