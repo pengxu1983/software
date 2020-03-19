@@ -1,4 +1,6 @@
 #!/home/benpeng/nbifweb_client/software/node/bin/node
+let querystring     = require('querystring');
+let http            = require('http');
 let process = require('process');
 let fs = require('fs');
 console.log(process.argv);
@@ -120,8 +122,6 @@ console.log(onecase);
 //  mode      : '0600',
 //  flag      : 'w'
 //});
-//let querystring     = require('querystring');
-//let http            = require('http');
 //let fs              = require('fs');
 //let child_process   = require('child_process');
 //let cronJob         = require("cron").CronJob;
