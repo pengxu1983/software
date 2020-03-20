@@ -14,7 +14,7 @@ let dly             = async function(ms){
 let tests = [];
 //let cronJob         = require("cron").CronJob;
 
-if((!fs.existsSync(treeRoot+'/testlist.log')||(!fs.existsSync(treeRoot+'/configuration_id')||(!fs.existsSync(treeRoot+'/NBIF_TREE_INFO')){
+if((!fs.existsSync(treeRoot+'/testlist.log'))||(!fs.existsSync(treeRoot+'/configuration_id'))||(!fs.existsSync(treeRoot+'/NBIF_TREE_INFO'))){
   console.log('lack of needed files');
 }
 else{
@@ -28,7 +28,7 @@ else{
   let variantname;
   let isBAPU;
   //configuration_id
-  let lines = fs.readFileSync(localpath+'/configuration_id','utf8').split('\n');
+  let lines = fs.readFileSync(treeRoot+'/configuration_id','utf8').split('\n');
   lines.pop();
   let regx01  =/(\w+)\/(\w+)@(\w+)/;
   lines[0].replace(regx01,function(rs,$1,$2,$3){
@@ -37,12 +37,11 @@ else{
     changelist  = $3;
   });
   //NBIF_TREE_INFO
-  lines = fs.readFileSync(localpath+'/NBIF_TREE_INFO','utf8').split('\n');
+  lines = fs.readFileSync(treeRoot+'/NBIF_TREE_INFO','utf8').split('\n');
   lines.pop();
   regx01  = /(\w+):::(\S+)/;
   for(let l=0;l<lines.length;l++){
     lines[l].replace(regx01,function(rs,$1,$2){
-      sails.log($1,$2);
       if($1 == 'projectname'){
         projectname = $2;
       }
@@ -61,7 +60,7 @@ else{
     });
   }
   //testlist.log
-  lines = fs.readFileSync(localpath+'/testlist.log','utf8').split('\n');
+  lines = fs.readFileSync(treeRoot+'/testlist.log','utf8').split('\n');
   lines.pop();
   regx01  = /^\[dj \d+:\d+:\d+ I\]: PASSED ctxt (\w+), evaluation of 'testcase '(nbif\(:\w+, :)(\w+)\)::(.*)\/(.*)''/;
   let regx001    = /^\[dj \d+:\d+:\d+ I\]:   "attributes": /;
@@ -124,45 +123,47 @@ else{
     }
   }
 }
-
-for(let t=0;t<tests.length;t++){
-  await dly(300);
-  let onecase = JSON.parse(JSON.stringify(tests[t]));
-  onecase.seed         = 'NA';
-  onecase.result       = 'NOTSTARTED';
-  onecase.signature    = 'NA';
-  onecase.starttime    = 'NA';
-  onecase.endtime      = 'NA';
-  let postData = querystring.stringify(onecase);
-  
-  let options = {
-    hostname: 'ltipc969',
-    port: 9001,
-    path: '/try/notstarted',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': Buffer.byteLength(postData)
-    }
-  };
-  
-  let req = http.request(options, (res) => {
-    console.log(`STATUS: ${res.statusCode}`);
-    console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-    res.setEncoding('utf8');
-    res.on('data', (chunk) => {
-      console.log(`BODY: ${chunk}`);
+let sendcases = async function(){
+  for(let t=0;t<tests.length;t++){
+    await dly(300);
+    let onecase = JSON.parse(JSON.stringify(tests[t]));
+    onecase.seed         = 'NA';
+    onecase.result       = 'NOTSTARTED';
+    onecase.signature    = 'NA';
+    onecase.starttime    = 'NA';
+    onecase.endtime      = 'NA';
+    let postData = querystring.stringify(onecase);
+    
+    let options = {
+      hostname: 'ltipc969',
+      port: 9001,
+      path: '/try/notstarted',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    };
+    
+    let req = http.request(options, (res) => {
+      console.log(`STATUS: ${res.statusCode}`);
+      console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        console.log(`BODY: ${chunk}`);
+      });
+      res.on('end', () => {
+        console.log('No more data in response.');
+      });
     });
-    res.on('end', () => {
-      console.log('No more data in response.');
+    
+    req.on('error', (e) => {
+      console.error(`problem with request: ${e.message}`);
     });
-  });
-  
-  req.on('error', (e) => {
-    console.error(`problem with request: ${e.message}`);
-  });
-  
-  // Write data to request body
-  req.write(postData);
-  req.end();
+    
+    // Write data to request body
+    req.write(postData);
+    req.end();
+  }
 }
+sendcases();
