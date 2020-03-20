@@ -1,44 +1,168 @@
 #!/home/benpeng/nbifweb_client/software/node/bin/node
-let process = require('process');
+let process         = require('process');
 console.log(process.argv);
 let querystring     = require('querystring');
 let http            = require('http');
-let treeRoot  = process.argv[2];
-//let fs              = require('fs');
-//let child_process   = require('child_process');
+let treeRoot        = process.argv[2];
+let fs              = require('fs');
+let child_process   = require('child_process');
+let dly             = async function(ms){
+  return new Promise(function(resolve){
+    setTimeout(resolve,ms);
+  });
+}
+let tests = [];
 //let cronJob         = require("cron").CronJob;
-const postData = querystring.stringify({
-  //'treeRoot': '/proj/cip_floyd_genz/ip_regression/nbif.regression.branch.mi200.nbif_nv10_gpu.group1.1'
-  'treeRoot': treeRoot
-});
 
-const options = {
-  hostname: 'ltipc969',
-  port: 9001,
-  path: '/try/start',
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Content-Length': Buffer.byteLength(postData)
+if((!fs.existsSync(treeRoot+'/testlist.log')||(!fs.existsSync(treeRoot+'/configuration_id')||(!fs.existsSync(treeRoot+'/NBIF_TREE_INFO')){
+  console.log('lack of needed files');
+}
+else{
+  console.log('files status normal');
+  let codeline;
+  let branch_name;
+  let changelist;
+  let projectname;
+  let shelve;
+  let kickoffdate;
+  let variantname;
+  let isBAPU;
+  //configuration_id
+  let lines = fs.readFileSync(localpath+'/configuration_id','utf8').split('\n');
+  lines.pop();
+  let regx01  =/(\w+)\/(\w+)@(\w+)/;
+  lines[0].replace(regx01,function(rs,$1,$2,$3){
+    codeline  = $1;
+    branch_name = $2;
+    changelist  = $3;
+  });
+  //NBIF_TREE_INFO
+  lines = fs.readFileSync(localpath+'/NBIF_TREE_INFO','utf8').split('\n');
+  lines.pop();
+  regx01  = /(\w+):::(\S+)/;
+  for(let l=0;l<lines.length;l++){
+    lines[l].replace(regx01,function(rs,$1,$2){
+      sails.log($1,$2);
+      if($1 == 'projectname'){
+        projectname = $2;
+      }
+      if($1 == 'shelve'){
+        shelve  = $2;
+      }
+      if($1 == 'kickoffdate'){
+        kickoffdate = $2;
+      }
+      if($1 == 'variantname'){
+        variantname = $2;
+      }
+      if($1 == 'isBAPU'){
+        isBAPU  = $2;
+      }
+    });
   }
-};
+  //testlist.log
+  lines = fs.readFileSync(localpath+'/testlist.log','utf8').split('\n');
+  lines.pop();
+  regx01  = /^\[dj \d+:\d+:\d+ I\]: PASSED ctxt (\w+), evaluation of 'testcase '(nbif\(:\w+, :)(\w+)\)::(.*)\/(.*)''/;
+  let regx001    = /^\[dj \d+:\d+:\d+ I\]:   "attributes": /;
+  let regx002    = /^\[dj \d+:\d+:\d+ I\]:   }/;
+  let regx003    = /^\[dj \d+:\d+:\d+ I\]:     "name": "(.*)"/;
+  let regx004    = /^\[dj \d+:\d+:\d+ I\]:     "config": "(.*)"/;
+  let regx005    = /^\[dj \d+:\d+:\d+ I\]:     "group": "(.*)"/;
+  let regx006    = /^\[dj \d+:\d+:\d+ I\]:     "run_out_path": "(.*)"/;
+  let regx007    = /^\[dj \d+:\d+:\d+ I\]:     "fullname": "nbif\(:(\w+), :(\w+)\)::(\w+)\/\w+"/;
+  let flag  = 0;
+  let testname;
+  let suite;
+  let config;
+  let group;
+  let run_out_path;
+  for(let l=0;l<lines.length;l++){
+    if(regx001.test(lines[l])){
+      flag  = 1;
+    }
+    if(regx002.test(lines[l])){
+      flag  = 0;
+      let caseid  = {
+        variantname : variantname,
+        suite       : suite,
+        config      : config,
+        groupname   : group,
+        testname    : testname,
+        codeline    : codeline,
+        branch_name : branch_name,
+        changelist  : changelist,
+        projectname : projectname,
+        kickoffdate : kickoffdate,
+        shelve      : shelve,
+        isBAPU      : isBAPU,
+      };
+      tests.push(caseid);
+    }
+    if(flag == 1){
+      if(regx003.test(lines[l])){
+        lines[l].replace(regx003, function(rs,$1){
+          testname  = $1;
+        });
+      }
+      if(regx004.test(lines[l])){
+        lines[l].replace(regx004, function(rs,$1){
+          config  = $1;
+        });
+      }
+      if(regx005.test(lines[l])){
+        lines[l].replace(regx005, function(rs,$1){
+          group = $1;
+        });
+      }
+      if(regx007.test(lines[l])){
+        lines[l].replace(regx007, function(rs,$1,$2,$3){
+          //projectname = $2;
+          suite = $3;
+        });
+      }
+    }
+  }
+}
 
-const req = http.request(options, (res) => {
-  console.log(`STATUS: ${res.statusCode}`);
-  console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-  res.setEncoding('utf8');
-  res.on('data', (chunk) => {
-    console.log(`BODY: ${chunk}`);
+for(let t=0;t<tests.length;t++){
+  await dly(300);
+  let onecase = JSON.parse(JSON.stringify(tests[t]));
+  onecase.seed         = 'NA';
+  onecase.result       = 'NOTSTARTED';
+  onecase.signature    = 'NA';
+  onecase.starttime    = 'NA';
+  onecase.endtime      = 'NA';
+  let postData = querystring.stringify(onecase);
+  
+  let options = {
+    hostname: 'ltipc969',
+    port: 9001,
+    path: '/try/notstarted',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(postData)
+    }
+  };
+  
+  let req = http.request(options, (res) => {
+    console.log(`STATUS: ${res.statusCode}`);
+    console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+    res.setEncoding('utf8');
+    res.on('data', (chunk) => {
+      console.log(`BODY: ${chunk}`);
+    });
+    res.on('end', () => {
+      console.log('No more data in response.');
+    });
   });
-  res.on('end', () => {
-    console.log('No more data in response.');
+  
+  req.on('error', (e) => {
+    console.error(`problem with request: ${e.message}`);
   });
-});
-
-req.on('error', (e) => {
-  console.error(`problem with request: ${e.message}`);
-});
-
-// Write data to request body
-req.write(postData);
-req.end();
+  
+  // Write data to request body
+  req.write(postData);
+  req.end();
+}
