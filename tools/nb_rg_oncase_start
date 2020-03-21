@@ -1,104 +1,188 @@
 #!/home/benpeng/nbifweb_client/software/node/bin/node
+var mysql      = require('mysql');
+var moment      = require('moment');
+var connection = mysql.createConnection({
+  host     : 'atlvmysqldp19.amd.com',
+  user     : 'nbif_ad',
+  password : 'WqyaSp90*',
+  database : 'nbif_management_db'
+});
+ 
+ 
+
+let process         = require('process');
+console.log(process.argv);
 let querystring     = require('querystring');
 let http            = require('http');
+let treeRoot        = process.argv[2];
+//let testname        = process.argv[3];
+//let seed            = process.argv[4];
 let fs              = require('fs');
 let child_process   = require('child_process');
-let process = require('process');
-
-console.log(process.argv);
-let str = '{';
-for (let i=3;i<process.argv.length;i++){
-  str += process.argv[i];
-  str += ',';
-}
-str += '}';
-let lines = fs.readFileSync('./NBIF_TREE_INFO','utf8').split('\n');
-lines.pop();
-let regx01  = /(\w+):::(\S+)/;
-let projectname;
-let shelve;
-let kickoffdate;
-let variantname;
-let isBAPU;
-let codeline;
-let branch_name;
-let changelist;
-for(let l=0;l<lines.length;l++){
-  lines[l].replace(regx01,function(rs,$1,$2){
-    console.log($1,$2);
-    if($1 == 'projectname'){
-      projectname = $2;
-    }
-    if($1 == 'shelve'){
-      shelve  = $2;
-    }
-    if($1 == 'kickoffdate'){
-      kickoffdate = $2;
-    }
-    if($1 == 'variantname'){
-      variantname = $2;
-    }
-    if($1 == 'isBAPU'){
-      isBAPU  = $2;
-    }
+let dly             = async function(ms){
+  return new Promise(function(resolve){
+    setTimeout(resolve,ms);
   });
 }
-lines = fs.readFileSync('./configuration_id','utf8').split('\n');
-regx01  =/(\w+)\/(\w+)@(\w+)/;
-lines.pop();
-lines[0].replace(regx01,function(rs,$1,$2,$3){
-  codeline  = $1;
-  branch_name = $2;
-  changelist  = $3;
-});
-let onecase = {
-  codeline  : codeline,
-  branch_name : branch_name,
-  changelist  : changelist,
-  projectname : projectname,
-  variantname : variantname,
-  kickoffdate : kickoffdate,
-  isBAPU      : isBAPU,
-  shelve      : shelve,
-  testname    : process.argv[2],
-  seed        : process.argv[3],
-};
-
-console.log(onecase);
-//fs.writeFileSync('startlog',JSON.stringify(onecase),{
-//  encoding  : 'utf8',
-//  mode      : '0600',
-//  flag      : 'w'
-//});
-let postData = querystring.stringify(onecase);
-
-let options = {
-  hostname: 'ltipc969',
-  port: 9001,
-  path: '/try/onecasestart',
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Content-Length': Buffer.byteLength(postData)
+let tests = [];
+let donenumber = 0;
+//let cronJob         = require("cron").CronJob;
+let checkdone = async function(){
+  while(1){
+    if(donenumber < tests.length){
+      console.log(donenumber);
+      await dly(5000);
+    }
+    else{
+      connection.end();
+      break;
+    }
   }
-};
-
-let req = http.request(options, (res) => {
-  console.log(`STATUS: ${res.statusCode}`);
-  console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-  res.setEncoding('utf8');
-  res.on('data', (chunk) => {
-    console.log(`BODY: ${chunk}`);
+}
+if((!fs.existsSync(treeRoot+'/testlist.log'))||(!fs.existsSync(treeRoot+'/configuration_id'))||(!fs.existsSync(treeRoot+'/NBIF_TREE_INFO'))){
+  console.log('lack of needed files');
+}
+else{
+  console.log('files status normal');
+  let codeline;
+  let branch_name;
+  let changelist;
+  let projectname;
+  let shelve;
+  let kickoffdate;
+  let variantname;
+  let isBAPU;
+  //configuration_id
+  let lines = fs.readFileSync(treeRoot+'/configuration_id','utf8').split('\n');
+  lines.pop();
+  let regx01  =/(\w+)\/(\w+)@(\w+)/;
+  lines[0].replace(regx01,function(rs,$1,$2,$3){
+    codeline  = $1;
+    branch_name = $2;
+    changelist  = $3;
   });
-  res.on('end', () => {
-    console.log('No more data in response.');
+  //NBIF_TREE_INFO
+  lines = fs.readFileSync(treeRoot+'/NBIF_TREE_INFO','utf8').split('\n');
+  lines.pop();
+  regx01  = /(\w+):::(\S+)/;
+  for(let l=0;l<lines.length;l++){
+    lines[l].replace(regx01,function(rs,$1,$2){
+      if($1 == 'projectname'){
+        projectname = $2;
+      }
+      if($1 == 'shelve'){
+        shelve  = $2;
+      }
+      if($1 == 'kickoffdate'){
+        kickoffdate = $2;
+      }
+      if($1 == 'variantname'){
+        variantname = $2;
+      }
+      if($1 == 'isBAPU'){
+        isBAPU  = $2;
+      }
+    });
+  }
+  //testlist.log
+  lines = fs.readFileSync(treeRoot+'/testlist.log','utf8').split('\n');
+  lines.pop();
+  regx01  = /^\[dj \d+:\d+:\d+ I\]: PASSED ctxt (\w+), evaluation of 'testcase '(nbif\(:\w+, :)(\w+)\)::(.*)\/(.*)''/;
+  let regx001    = /^\[dj \d+:\d+:\d+ I\]:   "attributes": /;
+  let regx002    = /^\[dj \d+:\d+:\d+ I\]:   }/;
+  let regx003    = /^\[dj \d+:\d+:\d+ I\]:     "name": "(.*)"/;
+  let regx004    = /^\[dj \d+:\d+:\d+ I\]:     "config": "(.*)"/;
+  let regx005    = /^\[dj \d+:\d+:\d+ I\]:     "group": "(.*)"/;
+  let regx006    = /^\[dj \d+:\d+:\d+ I\]:     "run_out_path": "(.*)"/;
+  let regx007    = /^\[dj \d+:\d+:\d+ I\]:     "fullname": "nbif\(:(\w+), :(\w+)\)::(\w+)\/\w+"/;
+  let flag  = 0;
+  let testname;
+  let suite;
+  let config;
+  let group;
+  let run_out_path;
+  for(let l=0;l<lines.length;l++){
+    if(regx001.test(lines[l])){
+      flag  = 1;
+    }
+    if(regx002.test(lines[l])){
+      flag  = 0;
+      let caseid  = {
+        variantname : variantname,
+        suite       : suite,
+        config      : config,
+        groupname   : group,
+        testname    : testname,
+        codeline    : codeline,
+        branch_name : branch_name,
+        changelist  : changelist,
+        projectname : projectname,
+        kickoffdate : kickoffdate,
+        shelve      : shelve,
+        isBAPU      : isBAPU,
+      };
+      tests.push(caseid);
+    }
+    if(flag == 1){
+      if(regx003.test(lines[l])){
+        lines[l].replace(regx003, function(rs,$1){
+          testname  = $1;
+        });
+      }
+      if(regx004.test(lines[l])){
+        lines[l].replace(regx004, function(rs,$1){
+          config  = $1;
+        });
+      }
+      if(regx005.test(lines[l])){
+        lines[l].replace(regx005, function(rs,$1){
+          group = $1;
+        });
+      }
+      if(regx007.test(lines[l])){
+        lines[l].replace(regx007, function(rs,$1,$2,$3){
+          //projectname = $2;
+          suite = $3;
+        });
+      }
+    }
+  }
+}
+
+connection.connect(function(err){
+  if(err){
+    throw err;
+  }
+  let sql ;
+  let onecase;
+  let now;
+  let time;
+  for(let t=0;t<tests.length;t++){
+    //console.log("t :"+t)
+    //console.log("time :"+time);
+    
+    if(tests[t].testname  ==  process.argv[3]){
+      console.log('case found');
+      now = moment().format("x");
+      time = moment().format("YYYYMMDDHHssmm");
+      onecase = JSON.parse(JSON.stringify(tests[t]));
+      onecase.seed         =  process.argv[4];
+      onecase.result       = 'RUNNING';
+      onecase.signature    = 'NA';
+      onecase.starttime    = time;
+      onecase.endtime      = 'NA';
+      sql = 'delete from regressiondetails where ';
+      sql += 'testname="'+onecase.testname+'" and codeline="'+onecase.codeline+'" and branch_name="'+onecase.branch_name+'" and projectname="'+onecase.projectname+'" and variantname="'+onecase.variantname+'" and isBAPU="'+onecase.isBAPU+'" and shelve="'+onecase.shelve+'" and changelist="'+onecase.changelist+'" and kickoffdate="'+onecase.kickoffdate+'"';
+      console.log(sql);
+      break;
+    }
+  }
+  connection.query(sql,function(error1,result1){
+    if(error1) throw error1;
+    sql = 'insert into regressiondetails (testname,codeline,branch_name,projectname,variantname,isBAPU,shelve,changelist,seed,result,signature,starttime,endtime,config,suite,groupname,kickoffdate,createdAt,updatedAt) values ("'+onecase.testname+'","'+onecase.codeline+'","'+onecase.branch_name+'","'+onecase.projectname+'","'+onecase.variantname+'","'+onecase.isBAPU+'","'+onecase.shelve+'","'+onecase.changelist+'","'+onecase.seed+'","'+onecase.result+'","'+onecase.signature+'","'+onecase.starttime+'","'+onecase.endtime+'","'+onecase.config+'","'+onecase.suite+'","'+onecase.groupname+'","'+onecase.kickoffdate+'","'+now+'","'+now+'")';
+    connection.query(sql,function(error2,result2){
+      if(error2) throw error2;
+      connection.end();
+    });
   });
 });
-
-req.on('error', (e) => {
-  console.error(`problem with request: ${e.message}`);
-});
-
-// Write data to request body
-req.write(postData);
-req.end();
