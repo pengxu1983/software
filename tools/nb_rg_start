@@ -1,5 +1,6 @@
 #!/home/benpeng/nbifweb_client/software/node/bin/node
 var mysql      = require('mysql');
+var moment      = require('moment');
 var connection = mysql.createConnection({
   host     : 'atlvmysqldp19.amd.com',
   user     : 'nbif_ad',
@@ -22,8 +23,20 @@ let dly             = async function(ms){
   });
 }
 let tests = [];
+let donenumber = 0;
 //let cronJob         = require("cron").CronJob;
-
+let checkdone = async function(){
+  while(1){
+    if(donenumber < tests.length){
+      console.log(donenumber);
+      await dly(5000);
+    }
+    else{
+      connection.end();
+      break;
+    }
+  }
+}
 if((!fs.existsSync(treeRoot+'/testlist.log'))||(!fs.existsSync(treeRoot+'/configuration_id'))||(!fs.existsSync(treeRoot+'/NBIF_TREE_INFO'))){
   console.log('lack of needed files');
 }
@@ -138,25 +151,31 @@ connection.connect(function(err){
   if(err){
     throw err;
   }
-//for(let t=0;t<tests.length;t++){
-  let onecase = JSON.parse(JSON.stringify(tests[0]));//TODO
-  onecase.seed         = 'NA';
-  onecase.result       = 'NOTSTARTED';
-  onecase.signature    = 'NA';
-  onecase.starttime    = 'NA';
-  onecase.endtime      = 'NA';
-  let sql = 'delete from regressiondetails where ';
-  sql += 'testname="'+onecase.testname+'" and codeline="'+onecase.codeline+'" and branch_name="'+onecase.branch_name+'" and projectname="'+onecase.projectname+'" and variantname="'+onecase.variantname+'" and isBAPU="'+onecase.isBAPU+'" and shelve="'+onecase.shelve+'" and changelist="'+onecase.changelist+'" and kickoffdate="'+onecase.kickoffdate+'"';
-  console.log(sql);
-  connection.query(sql, function (error1, results1) {
-    if (error1) throw error1;
-    console.log(results1);
-    sql = 'insert into regressiondetails (testname,codeline,branch_name,projectname,variantname,isBAPU,shelve,changelist,seed,result,signature,starttime,endtime,config,suite,groupname,kickoffdate) values ("'+onecase.testname+'","'+onecase.codeline+'","'+onecase.branch_name+'","'+onecase.projectname+'","'+onecase.variantname+'","'+onecase.isBAPU+'","'+onecase.shelve+'","'+onecase.changelist+'","'+onecase.seed+'","'+onecase.result+'","'+onecase.signature+'","'+onecase.starttime+'","'+onecase.endtime+'","'+onecase.config+'","'+onecase.suite+'","'+onecase.groupname+'","'+onecase.kickoffdate+'")';
-    console.log(sql);
-    connection.query(sql, function (error2, results2) {
-      if (error2) throw error2;
-      console.log(results2);
+  for(let t=0;t<tests.length;t++){
+    let now = moment().format("x");
+    let time = moment().format("HHssmm");
+    //console.log("t :"+t)
+    //console.log("time :"+time);
+    let onecase = JSON.parse(JSON.stringify(tests[t]));
+    onecase.seed         = 'NA';
+    onecase.result       = 'NOTSTARTED';
+    onecase.signature    = 'NA';
+    onecase.starttime    = 'NA';
+    onecase.endtime      = 'NA';
+    let sql = 'delete from regressiondetails where ';
+    sql += 'testname="'+onecase.testname+'" and codeline="'+onecase.codeline+'" and branch_name="'+onecase.branch_name+'" and projectname="'+onecase.projectname+'" and variantname="'+onecase.variantname+'" and isBAPU="'+onecase.isBAPU+'" and shelve="'+onecase.shelve+'" and changelist="'+onecase.changelist+'" and kickoffdate="'+onecase.kickoffdate+'"';
+    //console.log(sql);
+    connection.query(sql, function (error1, results1) {
+      if (error1) throw error1;
+      //console.log(results1);
+      sql = 'insert into regressiondetails (testname,codeline,branch_name,projectname,variantname,isBAPU,shelve,changelist,seed,result,signature,starttime,endtime,config,suite,groupname,kickoffdate,createdAt,updatedAt) values ("'+onecase.testname+'","'+onecase.codeline+'","'+onecase.branch_name+'","'+onecase.projectname+'","'+onecase.variantname+'","'+onecase.isBAPU+'","'+onecase.shelve+'","'+onecase.changelist+'","'+onecase.seed+'","'+onecase.result+'","'+onecase.signature+'","'+onecase.starttime+'","'+onecase.endtime+'","'+onecase.config+'","'+onecase.suite+'","'+onecase.groupname+'","'+onecase.kickoffdate+'","'+now+'","'+now+'")';
+      //console.log(sql);
+      connection.query(sql, function (error2, results2) {
+        if (error2) throw error2;
+        //console.log(results2);
+        donenumber++;
+      });
     });
-  });
+  }
 });
-//}
+checkdone();
