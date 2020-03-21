@@ -1,4 +1,14 @@
 #!/home/benpeng/nbifweb_client/software/node/bin/node
+var mysql      = require('mysql');
+var connection = mysql.createConnection({
+  host     : 'atlvmysqldp19.amd.com',
+  user     : 'nbif_ad',
+  password : 'WqyaSp90*',
+  database : 'nbif_management_db'
+});
+ 
+ 
+
 let process         = require('process');
 console.log(process.argv);
 let querystring     = require('querystring');
@@ -123,47 +133,30 @@ else{
     }
   }
 }
-let sendcases = async function(){
-  for(let t=0;t<tests.length;t++){
-    await dly(300);
-    let onecase = JSON.parse(JSON.stringify(tests[t]));
-    onecase.seed         = 'NA';
-    onecase.result       = 'NOTSTARTED';
-    onecase.signature    = 'NA';
-    onecase.starttime    = 'NA';
-    onecase.endtime      = 'NA';
-    let postData = querystring.stringify(onecase);
-    
-    let options = {
-      hostname: 'ltipc969',
-      port: 9001,
-      path: '/try/notstarted',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    };
-    
-    let req = http.request(options, (res) => {
-      console.log(`STATUS: ${res.statusCode}`);
-      console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-      res.setEncoding('utf8');
-      res.on('data', (chunk) => {
-        console.log(`BODY: ${chunk}`);
-      });
-      res.on('end', () => {
-        console.log('No more data in response.');
-      });
-    });
-    
-    req.on('error', (e) => {
-      console.error(`problem with request: ${e.message}`);
-    });
-    
-    // Write data to request body
-    req.write(postData);
-    req.end();
+
+connection.connect(function(err){
+  if(err){
+    throw err;
   }
-}
-sendcases();
+//for(let t=0;t<tests.length;t++){
+  let onecase = JSON.parse(JSON.stringify(tests[0]));//TODO
+  onecase.seed         = 'NA';
+  onecase.result       = 'NOTSTARTED';
+  onecase.signature    = 'NA';
+  onecase.starttime    = 'NA';
+  onecase.endtime      = 'NA';
+  let sql = 'delete from regressiondetails where ';
+  sql += 'testname="'+onecase.testname+'" and codeline="'+onecase.codeline+'" and branch_name="'+onecase.branch_name+'" and projectname="'+onecase.projectname+'" and variantname="'+onecase.variantname+'" and isBAPU="'+onecase.isBAPU+'" and shelve="'+onecase.shelve+'" and changelist="'+onecase.changelist+'" and kickoffdate="'+onecase.kickoffdate+'"';
+  console.log(sql);
+  connection.query(sql, function (error1, results1) {
+    if (error1) throw error1;
+    console.log(results1);
+    sql = 'insert into regressiondetails (testname,codeline,branch_name,projectname,variantname,isBAPU,shelve,changelist,seed,result,signature,starttime,endtime,config,suite,groupname,kickoffdate) values ("'+onecase.testname+'","'+onecase.codeline+'","'+onecase.branch_name+'","'+onecase.projectname+'","'+onecase.variantname+'","'+onecase.isBAPU+'","'+onecase.shelve+'","'+onecase.changelist+'","'+onecase.seed+'","'+onecase.result+'","'+onecase.signature+'","'+onecase.starttime+'","'+onecase.endtime+'","'+onecase.config+'","'+onecase.suite+'","'+onecase.groupname+'","'+onecase.kickoffdate+'")';
+    console.log(sql);
+    connection.query(sql, function (error2, results2) {
+      if (error2) throw error2;
+      console.log(results2);
+    });
+  });
+});
+//}
