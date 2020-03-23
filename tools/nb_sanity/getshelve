@@ -1,2 +1,1 @@
-#!/tool/pandora64/bin/tcsh
-source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh
+#!/home/benpeng/nbifweb_client/software/node/bin/node
