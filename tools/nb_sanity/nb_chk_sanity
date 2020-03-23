@@ -1,0 +1,96 @@
+#!/home/benpeng/nbifweb_client/software/node/bin/node
+let querystring     = require('querystring');
+let http            = require('http');
+let process         = require('process');
+let fs              = require('fs');
+let child_process   = require('child_process');
+console.log(process.argv);
+console.log(process.argv.length);
+let username = child_process.execSync('whoami',{
+  encoding  : 'utf8'
+});
+let regx01  = /^(\w+)/;
+username.replace(regx01,function(rs,$1){
+  console.log($1);
+  username  = $1;
+});
+let hostname = child_process.execSync('hostname',{
+  encoding  : 'utf8'
+});
+regx01  = /^(\w+)/;
+hostname.replace(regx01,function(rs,$1){
+  console.log($1);
+  hostname  = $1;
+});
+let treeRoot = child_process.execSync('pwd',{
+  encoding  : 'utf8'
+});
+regx01  = /^(\S+)/;
+treeRoot.replace(regx01,function(rs,$1){
+  console.log($1);
+  treeRoot  = $1;
+});
+let lines = fs.readFileSync(treeRoot+'/configuration_id','utf8').split('\n');
+lines.pop();
+regx01  =/(\w+)\/(\w+)@(\w+)/;
+let codeline;
+let branch_name;
+let changelist;
+lines[0].replace(regx01,function(rs,$1,$2,$3){
+  codeline  = $1;
+  branch_name = $2;
+  changelist  = $3;
+});
+let testlist  = [];
+if(process.argv.length ==2){
+  let err = 'no shelve ID provided';
+  throw err;
+}
+if(process.argv.length>23){
+  let err = 'too many sanity cases';
+  throw err;
+}
+for(let t=3;t<process.argv.length;t++){
+  testlist.push(process.argv[t]);
+}
+let postData = querystring.stringify({
+  'treeRoot'  : treeRoot,
+  'username'  : username,
+  'hostname'  : hostname,
+  'shelve'    : process.argv[2],
+  'codeline'  : codeline,
+  'branch_name': branch_name,
+  'changelist': changelist,
+  'testlist'  : JSON.stringify(testlist)
+});
+
+let options = {
+  hostname: 'srdcws808',
+  port: 9001,
+  path: '/sanity/check',
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Content-Length': Buffer.byteLength(postData)
+  }
+};
+
+let req = http.request(options, (res) => {
+  console.log(`STATUS: ${res.statusCode}`);
+  console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+  res.setEncoding('utf8');
+  res.on('data', (chunk) => {
+    console.log(`BODY: ${chunk}`);
+  });
+  res.on('end', () => {
+    console.log('No more data in response.');
+  });
+});
+
+req.on('error', (e) => {
+  console.error(`problem with request: ${e.message}`);
+});
+
+// Write data to request body
+req.write(postData);
+req.end();
