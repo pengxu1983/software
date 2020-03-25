@@ -1,1 +1,110 @@
 #!/home/benpeng/nbifweb_client/software/node/bin/node
+var mysql           = require('mysql');
+let querystring     = require('querystring');
+let http            = require('http');
+var moment          = require('moment');
+let process         = require('process');
+let cronJob         = require("cron").CronJob;
+let child_process   = require('child_process');
+let fs              = require('fs');
+
+let sql ;
+let cron_check = new cronJob('*/5 * * * * *',function(){
+  console.log(moment().format('HHmmss'));
+  //finde
+  sql = 'select * from sanityshelves where ';
+  sql += 'result="NOTSTARTED"';
+  connection.query(sql,function(err1,result1){
+    if(err1) throw err1;
+    //console.log(result1);
+    if(result1.length == 0){
+
+    }
+    else{
+      console.log(result1[0]);
+      let workspace = '/proj/cip_nbif_de_2/sanitycheck/'+result1[0].codeline+'.'+result1[0].branch_name+'.'+result1[0].username+'.'+result1[0].shelve;
+      let variants  = ['nbif_nv10_gpu','nbif_draco_gpu','nbif_et_0','nbif_et_1','nbif_et_2'];
+      let text="";
+      for(let v=0;v<variants.length;v++){
+        let treeRoot  = workspace+'/'+variants[v];
+        if(fs.existsSync(treeRoot)){
+          console.log(variants[v]+' cleaning...');
+          child_process.execSync('mv '+treeRoot+' '+treeRoot+'.remove');
+          child_process.exec('rm -rf '+treeRoot+'.remove',function(err1,stdout1,stderr1){
+            console.log(variants[v]+' clean done');
+          });
+        }
+        child_process.execSync('mkdir -p '+treeRoot);
+        //sync script and shelve
+        text ='';
+        text += '#!/tool/pandora64/bin/tcsh\n';
+        text += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
+        text += 'cd '+treeRoot+'\n';
+        text += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
+        text += 'p4 unshelve -s '+result1[0].shelve+'\n';
+        fs.writeFileSync(treeRoot+'.sync.script',text,{
+          encoding  : 'utf8',
+          mode      : '0700',
+          flag      : 'w'
+        });
+        //build script
+        text ='';
+        text += '#!/tool/pandora64/bin/tcsh\n';
+        text += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
+        text += 'cd '+treeRoot+'\n';
+        text += 'bootenv -v '+variants[v]+'\n';
+        text += 'dj -l build.log -DUVM_VERBOSITY=UVM_LOW -m4 -DUSE_VRQ -DCGM -DSEED=12345678 run_test -s nbiftdl demo_test_0_nbif_all_rtl -a execute=off\n';
+        fs.writeFileSync(treeRoot+'.build.script',text,{
+          encoding  : 'utf8',
+          mode      : '0700',
+          flag      : 'w'
+        });
+        //run script
+        for(let t=0;t<JSON.parse(result1[0].testlist).length;t++){
+          text = '';
+          text += '#!/tool/pandora64/bin/tcsh\n';
+          text += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
+          text += 'cd '+treeRoot+'\n';
+          text += 'bootenv -v '+variants[v]+'\n';
+          text += 'dj -l '+treeRoot+'/'+JSON.parse(result1[0].testlist)[t]+'.log -DUVM_VERBOSITY=UVM_LOW -m4 -DUSE_VRQ -DCGM -DSEED=12345678 run_test -s nbiftdl '+JSON.parse(result1[0].testlist)[t]+'_nbif_all_rtl -a run=only\n';
+          fs.writeFileSync(treeRoot+'.run.'+JSON.parse(result1[0].testlist)[t]+'.script',text,{
+            encoding  : 'utf8',
+            mode      : '0700',
+            flag      : 'w'
+          });
+        }
+        child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_sanity -R "rusage[mem=2000] select[type==RHEL7_64]" '+treeRoot+'.sync.script',{
+          maxBuffer : 1024*1024*1024
+        },function(err,stdout,stderr){
+          if(err){
+            console.log(err);
+            //throw err;
+          }
+          console.log(variants[v] +' sync done');
+          child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_sanity -R "rusage[mem=5000] select[type==RHEL7_64]" '+treeRoot+'.build.script',{
+            maxBuffer : 1024*1024*1024
+          },function(err,stdout,stderr){
+            if(err) {
+              console.log(err);
+              //throw err;
+            }
+            console.log(variants[v]+'build done')
+          });
+        });
+        cron_check.stop();
+      }
+      //connection.end();
+    }
+  });
+},null,false,'Asia/Chongqing');
+var connection = mysql.createConnection({
+  host     : 'atlvmysqldp19.amd.com',
+  user     : 'nbif_ad',
+  password : 'WqyaSp90*',
+  database : 'nbif_management_db'
+});
+connection.connect(function(err){
+  if(err) throw err;
+  cron_check.start();
+});
+
