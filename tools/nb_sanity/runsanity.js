@@ -17,7 +17,11 @@ let checkifalldone  = function(path,checknumber,result){
     lines.pop();
     console.log('result files');
     console.log(lines.length);
+    let stat={};
     for(let l=0;l<lines.length;l++){
+      let parts = lines[l].split('.');
+      stat[parts[1]]={};
+      stat[parts[1]][parts[2]]=parts[3];
     }
     if(lines.length ==  checknumber){
       let connection = mysql.createConnection({
@@ -29,7 +33,12 @@ let checkifalldone  = function(path,checknumber,result){
       connection.connect(function(err){
         if(err) throw err;
       });
-      let sql = 'update sanityshelves set result="'+stat+'",resultlocation="'+path+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'"'
+      let sql = 'update sanityshelves set result="'+JSON.stringify(stat)+'",resultlocation="'+path+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'"';
+      connection.query(sql,function(err1,stdout1,stderr1){
+        if(err1) {
+          console.log(err1);
+        }
+      });
       connection.end();
     }
   });
@@ -58,13 +67,13 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     }
     let workspace = '/proj/cip_nbif_de_2/sanitycheck/'+result1[0].codeline+'.'+result1[0].branch_name+'.'+result1[0].username+'.'+result1[0].shelve;
     sql = 'update sanityshelves set result="RUNNING",resultlocation="'+workspace+'" where codeline="'+result1[0].codeline+'" and branch_name="'+result1[0].branch_name+'" and shelve="'+result1[0].shelve+'"';
-    connection.query(sql,function(err2,result2)){
+    connection.query(sql,function(err2,result2){
       if(err2){
         console.log(err2);
       }
       console.log('DB updated');
       connection.end();////END DB
-    }
+    });
     //cleaning workspace
     if(fs.existsSync(workspace)){
       console.log(workspace+'.remove cleaning...');
@@ -150,7 +159,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
         maxBuffer : 1024*1024*1024
       },function(err2,stdout2,stderr2){
         let endtimecasesync = new moment();
-        console.log(variants[v] +' sync cost '+moment.duration(starttimecasesync.diff(endtimecasesync)).as('minutes')+' minutes');
+        console.log(variants[v] +' sync cost '+moment.duration(endtimecasesync.diff(starttimecasesync)).as('minutes')+' minutes');
         console.log(variants[v] +' sync done');
         if(err2){
           console.log(err2);
@@ -159,6 +168,8 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
         child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_S_bd -R "rusage[mem=5000] select[type==RHEL7_64]" '+treeRoot+'.build.script',{
           maxBuffer : 1024*1024*1024
         },function(err3,stdout3,stderr3){
+          let endtimecasebuild  = new moment();
+          console.log(variants[v] +' build cost '+moment.duration(endtimecasebuild.diff(endtimecasesync)).as('minutes')+' minutes');
           console.log(variants[v] +' build done');
           if(fs.existsSync(treeRoot+'/build.log')){
             let lines = fs.readFileSync(treeRoot+'/build.log','utf8').split('\n');
@@ -191,6 +202,8 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                   child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_S_rn -R "rusage[mem=5000] select[type==RHEL7_64]" '+treeRoot+'.'+JSON.parse(result1[0].testlist)[t]+'.run.script',{
                     maxBuffer : 1024*1024*1024
                   },function(err4,stdout4,stderr4){
+                    let endtimecaserun  = new moment();
+                    console.log(variants[v] +' run cost '+moment.duration(endtimecaserun.diff(endtimecasebuild)).as('minutes')+' minutes');
                     if(err4){
                       console.log(err4);
                     }
@@ -268,6 +281,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
         });
       });
       //dcelab part
+      let starttimedcsync = new moment();
       console.log(variants[v]+' dcelab sync begin');
       child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_S_dcsy -R "rusage[mem=2000] select[type==RHEL7_64]" '+dcelabRoot+'.sync.script',{
         maxBuffer : 1024*1024*1024
@@ -275,10 +289,14 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
         if(err2){
           console.log(err2);
         }
+        let endtimedcsync = new moment();
+        console.log(variants[v]+' dcelab sync cost '+moment.duration(endtimedcsync.diff(starttimedcsync)).as('minutes')+' minutes');
         console.log(variants[v]+' dcelab sync done');
         child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_S_dcrn -R "rusage[mem=40000] select[type==RHEL7_64]" '+dcelabRoot+'.run.script',{
           maxBuffer : 1024*1024*1024
         },function(err3,stdout3,stderr3){
+          let endtimedcrun  = new moment();
+          console.log(variants[v]+' dcelab run cost '+moment.duration(endtimedcrun.diff(endtimedcsync)).as('minutes')+' minutes');
           console.log(variants[v]+' dcelab run done');
           if(err3){
             console.log(err3);
