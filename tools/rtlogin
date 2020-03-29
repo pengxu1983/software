@@ -1,6 +1,6 @@
 #!/bin/expect 
 spawn rt_login
 expect "*password:" { 
-  send "4rfv^YHN\r"
+  send 4rfv^YHN\r
   expect eof
 }
