@@ -1,30 +1,11 @@
-#!/home/benpeng/nbifweb_client/software/node/bin/node
-let querystring     = require('querystring');
-let http            = require('http');
-let process         = require('process');
-let fs              = require('fs');
-let child_process   = require('child_process');
-let username = child_process.execSync('whoami',{
-  encoding  : 'utf8'
-});
-let regx01  = /^(\w+)/;
-username.replace(regx01,function(rs,$1){
-  console.log($1);
-  username  = $1;
-});
-let hostname = child_process.execSync('hostname',{
-  encoding  : 'utf8'
-});
-regx01  = /^(\w+)/;
-hostname.replace(regx01,function(rs,$1){
-  console.log($1);
-  hostname  = $1;
-});
-let treeRoot = child_process.execSync('pwd',{
-  encoding  : 'utf8'
-});
-regx01  = /^(\S+)/;
-treeRoot.replace(regx01,function(rs,$1){
-  console.log($1);
-  treeRoot  = $1;
-});
+#!/tool/pandora64/bin/tcsh
+set   treeRoot  = `pwd`;
+set   username  = `whoami`;
+set   hostname  = `hostname`;
+set   configuration_id  = `cat $treeRoot/configuration_id`;
+set   passwd    = \!:1;
+echo $treeRoot;
+echo $username;
+echo $hostname;
+echo $configuration_id;
+sshpass -p $passwd ssh -o StrictHostKeyChecking=no $username@srdcws808 "/local_vol1_nobackup/nbiftools/nbif_chk_sanity.js -cid $configuration_id -u $username -h $hostname -r $treeRoot"

@@ -4,8 +4,24 @@ let http            = require('http');
 let process         = require('process');
 let fs              = require('fs');
 let child_process   = require('child_process');
-console.log(process.argv);
-console.log(process.argv.length);
+
+let testlist  =[];
+
+const { program }   = require('commander');
+program
+ .option('-t, --testlist <type>', 'testlist')
+ .option('-s, --shelve <type>', 'shelve id')
+ .option('-c, --codeline <type>', 'codeline')
+ .option('-u, --username <type>', 'username')
+ .option('-b, --branch_name <type>', 'branch_name')
+ .option('-l, --changelist <type>', 'changelist')
+ .option('-r, --treeroot <type>', 'treeroot')
+ .option('-h, --hostname <type>', 'hostname')
+ .option('-cid, --configuration_id <type>', 'hostname');
+program.parse(process.argv);
+if(program.testlist)  {
+  testlist  = program.testlist.split(',');
+}
 let username = child_process.execSync('whoami',{
   encoding  : 'utf8'
 });
@@ -41,23 +57,14 @@ lines[0].replace(regx01,function(rs,$1,$2,$3){
   branch_name = $2;
   changelist  = $3;
 });
-let testlist  = [];
-if(process.argv.length ==2){
-  let err = 'no shelve ID provided';
-  throw err;
-}
-if(process.argv.length>23){
-  let err = 'too many sanity cases';
-  throw err;
-}
-for(let t=3;t<process.argv.length;t++){
-  testlist.push(process.argv[t]);
-}
+
+console.log(testlist);
+
 let postData = querystring.stringify({
   'treeRoot'  : treeRoot,
   'username'  : username,
   'hostname'  : hostname,
-  'shelve'    : process.argv[2],
+  'shelve'    : program.shelve,
   'codeline'  : codeline,
   'branch_name': branch_name,
   'changelist': changelist,
