@@ -43,6 +43,7 @@ let checkifalldone  = function(path,checknumber,result){
     }
   });
 }
+
 ////////////////////
 ////////////////////
 ////////////////////
@@ -82,6 +83,16 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
         console.log(workspace+'.remove clean done');
       });
     }
+    let rtlogintext ='';
+    rtlogintext += '#!/tool/pandora64/bin/tcsh\n';
+    rtlogintext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
+    rtlogintext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
+    fs.writeFileSync(workspace+'.rtlogin.script',rtlogintext,{
+      encoding  : 'utf8',
+      mode      : '0700',
+      flag      : 'w'
+    });
+    child_process.execSync(workspace+'.rtlogin.script');
     for(let v=0;v<variants.length;v++){
       //create trees
       let treeRoot    = workspace+'/'+variants[v];
@@ -95,8 +106,9 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       casesynctext += '#!/tool/pandora64/bin/tcsh\n';
       casesynctext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
       casesynctext += 'cd '+treeRoot+'\n';
-      casesynctext += 'rm -rf ~/.jfrog/\n';
-      casesynctext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
+      //casesynctext += 'rm -rf ~/.jfrog/\n';
+      //casesynctext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
+      casesynctext += 'rt_login\n';
       casesynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
       casesynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
       fs.writeFileSync(treeRoot+'.sync.script',casesynctext,{
@@ -109,8 +121,9 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       dcelabsynctext += '#!/tool/pandora64/bin/tcsh\n';
       dcelabsynctext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
       dcelabsynctext += 'cd '+dcelabRoot+'\n';
-      dcelabsynctext += 'rm -rf ~/.jfrog/\n';
-      dcelabsynctext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
+      //dcelabsynctext += 'rm -rf ~/.jfrog/\n';
+      //dcelabsynctext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
+      dcelabsynctext += 'rt_login\n';
       dcelabsynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
       dcelabsynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
       fs.writeFileSync(dcelabRoot+'.sync.script',dcelabsynctext,{
@@ -123,6 +136,8 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       buildtext += '#!/tool/pandora64/bin/tcsh\n';
       buildtext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
       buildtext += 'cd '+treeRoot+'\n';
+      //buildtext += 'rm -rf ~/.jfrog/\n';
+      //buildtext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
       buildtext += 'rt_login\n';
       buildtext += 'bootenv -v '+variants[v]+'\n';
       buildtext += 'dj -l build.log -DUVM_VERBOSITY=UVM_LOW -m4 -DUSE_VRQ -DCGM -DSEED=12345678 run_test -s nbiftdl demo_test_0_nbif_all_rtl -a execute=off\n';
@@ -136,7 +151,8 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       rundcelabtext += '#!/tool/pandora64/bin/tcsh\n';
       rundcelabtext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
       rundcelabtext += 'cd '+dcelabRoot+'\n';
-      rundcelabtext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
+      //rundcelabtext += 'rm -rf ~/.jfrog/\n';
+      //rundcelabtext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
       rundcelabtext += 'rt_login\n';
       rundcelabtext += 'bootenv -v '+variants[v]+'\n';
       if(variants[v]  ==  'nbif_draco_gpu'){
@@ -190,6 +206,8 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                   runcasetext += '#!/tool/pandora64/bin/tcsh\n';
                   runcasetext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
                   runcasetext += 'cd '+treeRoot+'\n';
+                  //runcasetext += 'rm -rf ~/.jfrog/\n';
+                  //runcasetext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
                   runcasetext += 'rt_login\n';
                   runcasetext += 'bootenv -v '+variants[v]+'\n';
                   runcasetext += 'dj -l '+treeRoot+'/'+JSON.parse(result1[0].testlist)[t]+'.log -DUVM_VERBOSITY=UVM_LOW -m4 -DUSE_VRQ -DCGM -DSEED=12345678 run_test -s nbiftdl '+JSON.parse(result1[0].testlist)[t]+'_nbif_all_rtl -a run=only\n';
