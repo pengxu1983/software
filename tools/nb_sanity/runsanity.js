@@ -18,10 +18,20 @@ let checkifalldone  = function(path,checknumber,result){
     console.log('result files');
     console.log(lines.length);
     let stat={};
+    let overallstat ='PASS';
     for(let l=0;l<lines.length;l++){
       let parts = lines[l].split('.');
       stat[parts[1]]={};
       stat[parts[1]][parts[2]]=parts[3];
+      if(parts[3] ==  'RUNFAIL'){
+        overallstat = 'FAIL';
+      }
+      if(parts[3] ==  'BUILDFAIL'){
+        overallstat = 'FAIL';
+      }
+      if(parts[3] ==  'RUNUNKNOWN'){
+        overallstat = 'FAIL';
+      }
     }
     if(lines.length ==  checknumber){
       let connection = mysql.createConnection({
@@ -40,6 +50,42 @@ let checkifalldone  = function(path,checknumber,result){
         }
       });
       connection.end();
+      let lines = fs.readFileSync('/home/benpeng/p4users','utf8');
+      lines.pop();
+      let regx  = /\S+ <(\S+)>/;
+      for(let l=0;l<lines.length;l++){
+        if(regx.test(lines[l])){
+          lines[l].replace(regx,function(rs,$1){
+            console.log($1);
+          });
+          break;
+        }
+      }
+      let mailbody  = '';
+      mailbody  +=  '\n';
+      mailbody  +=  'Hi '+result.username+'\n';
+      mailbody  +=  '   Sanity check of :\n';
+      mailbody  +=  '   codeline     :'+result.codeline+'\n';
+      mailbody  +=  '   branch_name  :'+result.branch_name+'\n';
+      mailbody  +=  '   shelve       :'+result.shelve+'\n';
+      mailbody  +=  '   host         :'+result.hostname+'\n';
+      mailbody  +=  '   treeRoot     :'+result.treeRoot+'\n';
+      mailbody  +=  '   overall status is :\n';
+      mailbody  +=  overallstat+'\n';
+      if(overallstat  !=  'PASS'){
+        mailbody  +=  '   details are :\n';
+        for(let variantname in  stat){
+          mailbody  +=  '   Variant :'+variantname+':\n';
+          for(let taskname in stat[variantname]){
+            mailbody  +=  '     '+taskname+' : '+stat[variantname][taskname];
+          }
+        }
+      }
+      fs.writeFileSync(workspace+'/report',mailbody,{
+        encoding  : 'utf8',
+        mode      : '0600',
+        flag      : 'w'
+      });
     }
   });
 }
@@ -62,10 +108,13 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
   sql += 'select * from sanityshelves where ';
   sql += 'result="NOTSTARTED"';
   let variants  = ['nbif_nv10_gpu','nbif_draco_gpu','nbif_et_0','nbif_et_1','nbif_et_2'];
+  let numberofresult ; 
   connection.query(sql,function(err1,result1){
     if(err1){
       console.log(err1);
     }
+    numberofresult  = variants.length + variants.length * JSON.parse(result1[0].testlist).length;
+    console.log('reports number '+numberofresult);
     let workspace = '/proj/cip_nbif_de_2/sanitycheck/'+result1[0].codeline+'.'+result1[0].branch_name+'.'+result1[0].username+'.'+result1[0].shelve;
     sql = 'update sanityshelves set result="RUNNING",resultlocation="'+workspace+'" where codeline="'+result1[0].codeline+'" and branch_name="'+result1[0].branch_name+'" and shelve="'+result1[0].shelve+'"';
     connection.query(sql,function(err2,result2){
@@ -87,12 +136,13 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     rtlogintext += '#!/tool/pandora64/bin/tcsh\n';
     rtlogintext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
     rtlogintext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
-    fs.writeFileSync(workspace+'.rtlogin.script',rtlogintext,{
+    child_process.execSync('mkdir -p '+workspace);
+    fs.writeFileSync(workspace+'/rtlogin.script',rtlogintext,{
       encoding  : 'utf8',
       mode      : '0700',
       flag      : 'w'
     });
-    child_process.execSync(workspace+'.rtlogin.script');
+    child_process.execSync(workspace+'/rtlogin.script');
     for(let v=0;v<variants.length;v++){
       //create trees
       let treeRoot    = workspace+'/'+variants[v];
@@ -294,6 +344,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                 }
                 break;
               }
+              checkifalldone(workspace,numberofresult,result1[0]);
             }
           }
         });
@@ -361,6 +412,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                 flag      : 'w'
               });
             }
+            checkifalldone(workspace,numberofresult,result1[0]);
           }
         });
       });
