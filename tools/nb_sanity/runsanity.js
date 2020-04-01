@@ -10,29 +10,38 @@ let fs              = require('fs');
 ////////////////////
 //checking function
 ////////////////////
-let checkifalldone  = function(path,checknumber,result){
+let checkifalldone  = function(path,checknumber,result,stat){
   child_process.exec('ls '+path+'/result.* -d',function(err,stdout,stderr){
     console.log(stdout);
     let lines = stdout.split('\n');
     lines.pop();
     console.log('result files');
     console.log(lines.length);
-    let stat={};
     let overallstat ='PASS';
-    for(let l=0;l<lines.length;l++){
-      let parts = lines[l].split('.');
-      stat[parts[1]]={};
-      stat[parts[1]][parts[2]]=parts[3];
-      if(parts[3] ==  'RUNFAIL'){
-        overallstat = 'FAIL';
-      }
-      if(parts[3] ==  'BUILDFAIL'){
-        overallstat = 'FAIL';
-      }
-      if(parts[3] ==  'RUNUNKNOWN'){
-        overallstat = 'FAIL';
+    let email = '';
+    let regx  = /FAIL/;
+    for(let variantname in stat){
+      for(let taskname in stat[variantname]){
+        if(regx.test(stat[variantname][taskname])){
+          overallstat = 'FAIL';
+          break;
+        }
       }
     }
+    //for(let l=0;l<lines.length;l++){
+    //  let parts = lines[l].split('.');
+    //  stat[parts[1]]={};
+    //  stat[parts[1]][parts[2]]=parts[3];
+    //  if(parts[3] ==  'RUNFAIL'){
+    //    overallstat = 'FAIL';
+    //  }
+    //  if(parts[3] ==  'BUILDFAIL'){
+    //    overallstat = 'FAIL';
+    //  }
+    //  if(parts[3] ==  'RUNUNKNOWN'){
+    //    overallstat = 'FAIL';
+    //  }
+    //}
     if(lines.length ==  checknumber){
       let connection = mysql.createConnection({
         host     : 'atlvmysqldp19.amd.com',
@@ -43,22 +52,25 @@ let checkifalldone  = function(path,checknumber,result){
       connection.connect(function(err){
         if(err) throw err;
       });
-      let sql = 'update sanityshelves set result="'+JSON.stringify(stat)+'",resultlocation="'+path+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'"';
+      let sql = 'update sanityshelves set details=\''+JSON.stringify(stat)+'",resultlocation="'+path+'\',result="'+overallstat+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'"';
       connection.query(sql,function(err1,stdout1,stderr1){
         if(err1) {
           console.log(err1);
         }
       });
       connection.end();
-      let lines = fs.readFileSync('/home/benpeng/p4users','utf8');
+      let lines = fs.readFileSync('/home/benpeng/p4users','utf8').split('\n');
       lines.pop();
-      let regx  = /\S+ <(\S+)>/;
+      let regx  = /(\S+) <(\S+)>/;
       for(let l=0;l<lines.length;l++){
         if(regx.test(lines[l])){
-          lines[l].replace(regx,function(rs,$1){
-            console.log($1);
+          lines[l].replace(regx,function(rs,$1,$2){
+            //console.log($1,$2);
+            if($1 ==  result.username){
+              email = $2;
+              console.log('email '+email);
+            }
           });
-          break;
         }
       }
       let mailbody  = '';
@@ -71,17 +83,18 @@ let checkifalldone  = function(path,checknumber,result){
       mailbody  +=  '   host         :'+result.hostname+'\n';
       mailbody  +=  '   treeRoot     :'+result.treeRoot+'\n';
       mailbody  +=  '   overall status is :\n';
-      mailbody  +=  overallstat+'\n';
-      if(overallstat  !=  'PASS'){
-        mailbody  +=  '   details are :\n';
-        for(let variantname in  stat){
-          mailbody  +=  '   Variant :'+variantname+':\n';
-          for(let taskname in stat[variantname]){
-            mailbody  +=  '     '+taskname+' : '+stat[variantname][taskname];
+      mailbody  +=  '      '+overallstat+'\n';
+      if(overallstat  ==  'FAIL'){
+        mailbody  +=  '   detailed status is :\n';
+        for(let variantname in stat){
+          mailbody  +=  '   '+variantname+':\n';
+          for(let taskname  in stat[variantname]){
+            mailbody  +=  '     '+taskname+' : '+stat[variantname][taskname]+'\n';
           }
+          mailbody  +=  '\n';
         }
       }
-      fs.writeFileSync(workspace+'/report',mailbody,{
+      fs.writeFileSync(path+'/report',mailbody,{
         encoding  : 'utf8',
         mode      : '0600',
         flag      : 'w'
@@ -94,6 +107,7 @@ let checkifalldone  = function(path,checknumber,result){
 ////////////////////
 ////////////////////
 let cron_check = new cronJob('*/5 * * * * *',function(){
+  let stat  = {};
   console.log(moment().format('YYYYMMDDHHmmss'));
   let connection = mysql.createConnection({
     host     : 'atlvmysqldp19.amd.com',
@@ -108,10 +122,16 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
   sql += 'select * from sanityshelves where ';
   sql += 'result="NOTSTARTED"';
   let variants  = ['nbif_nv10_gpu','nbif_draco_gpu','nbif_et_0','nbif_et_1','nbif_et_2'];
-  let numberofresult ; 
+  let numberofresult ;
+  let finishedreport =0;
   connection.query(sql,function(err1,result1){
     if(err1){
       console.log(err1);
+    }
+    console.log(result1);
+    if(result1.length ==  0){
+      connection.end();
+      return;
     }
     numberofresult  = variants.length + variants.length * JSON.parse(result1[0].testlist).length;
     console.log('reports number '+numberofresult);
@@ -144,6 +164,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     });
     child_process.execSync(workspace+'/rtlogin.script');
     for(let v=0;v<variants.length;v++){
+      stat[variants[v]]={};
       //create trees
       let treeRoot    = workspace+'/'+variants[v];
       let dcelabRoot  = workspace+'/'+variants[v]+'.dcelab';
@@ -252,6 +273,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                 //RUN case
                 ////////////////////
                 for(let t=0;t<JSON.parse(result1[0].testlist).length;t++){
+                  stat[variants[v]][JSON.parse(result1[0].testlist)[t]]='';
                   let runcasetext='';
                   runcasetext += '#!/tool/pandora64/bin/tcsh\n';
                   runcasetext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
@@ -282,6 +304,9 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                       for(let l=0;l<lines.length;l++){
                         if(djregxfail.test(lines[l])){
                           console.log(variants[v]+' '+JSON.parse(result1[0].testlist)[t]+' run fail');
+                          stat[variants[v]][JSON.parse(result1[0].testlist)[t]]='RUNFAIL';
+                          console.log('stat :'+stat);
+                          console.log('stat :'+JSON.stringify(stat));
                           fs.writeFileSync(workspace+'/result.'+variants[v]+'.'+JSON.parse(result1[0].testlist)[t]+'.RUNFAIL','',{
                             encoding  : 'utf8',
                             mode      : '0600',
@@ -291,6 +316,9 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                         }
                         if(djregxpass.test(lines[l])){
                           console.log(variants[v]+' '+JSON.parse(result1[0].testlist)[t]+' run pass');
+                          stat[variants[v]][JSON.parse(result1[0].testlist)[t]]='RUNPASS';
+                          console.log('stat :'+stat);
+                          console.log('stat :'+JSON.stringify(stat));
                           fs.writeFileSync(workspace+'/result.'+variants[v]+'.'+JSON.parse(result1[0].testlist)[t]+'.RUNPASS','',{
                             encoding  : 'utf8',
                             mode      : '0600',
@@ -305,20 +333,28 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                       }
                       else{
                         console.log(variants[v]+' '+JSON.parse(result1[0].testlist)[t]+' run unknown');
+                        stat[variants[v]][JSON.parse(result1[0].testlist)[t]]='RUNUNKNOWN';
+                        console.log('stat :'+stat);
+                        console.log('stat :'+JSON.stringify(stat));
                         fs.writeFileSync(workspace+'/result.'+variants[v]+'.'+JSON.parse(result1[0].testlist)[t]+'.RUNUNKNOWN','',{
                           encoding  : 'utf8',
                           mode      : '0600',
                           flag      : 'w'
                         });
                       }
+                      checkifalldone(workspace,numberofresult,result1[0],stat);
                     }
                     else{
                       console.log(variants[v]+' '+JSON.parse(result1[0].testlist)[t]+' run unknown');
+                      stat[variants[v]][JSON.parse(result1[0].testlist)[t]]='RUNUNKNOWN';
+                      console.log('stat :'+stat);
+                      console.log('stat :'+JSON.stringify(stat));
                       fs.writeFileSync(workspace+'/result.'+variants[v]+'.'+JSON.parse(result1[0].testlist)[t]+'.RUNUNKNOWN','',{
                         encoding  : 'utf8',
                         mode      : '0600',
                         flag      : 'w'
                       });
+                      checkifalldone(workspace,numberofresult,result1[0],stat);
                     }
                   });
                 }
@@ -336,15 +372,18 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                 ////////////////////
                 for(let t=0;t<JSON.parse(result1[0].testlist).length;t++){
                   console.log(variants[v]+' '+JSON.parse(result1[0].testlist)[t]+' build fail. not run');
+                  stat[variants[v]][JSON.parse(result1[0].testlist)[t]]='BUILDFAIL';
+                  console.log('stat :'+stat);
+                  console.log('stat :'+JSON.stringify(stat));
                   fs.writeFileSync(workspace+'/result.'+variants[v]+'.'+JSON.parse(result1[0].testlist)[t]+'.BUILDFAIL','',{
                     encoding  : 'utf8',
                     mode      : '0600',
                     flag      : 'w'
                   });
                 }
+                checkifalldone(workspace,numberofresult,result1[0],stat);
                 break;
               }
-              checkifalldone(workspace,numberofresult,result1[0]);
             }
           }
         });
@@ -372,6 +411,9 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
           }
           if(!fs.existsSync(dcelabRoot+"/dcelab.log")){
             console.log(variants[v]+' dcelab UNKNOWN');
+            stat[variants[v]]['dcelab']='RUNUNKNOWN';
+            console.log('stat :'+stat);
+            console.log('stat :'+JSON.stringify(stat));
             fs.writeFileSync(workspace+'/result.'+variants[v]+'.dcelab.RUNUNKNOWN','',{
               encoding  : 'utf8',
               mode      : '0600',
@@ -383,6 +425,9 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
             for(let l=0;l<lines.length;l++){
               if(djregxpass.test(lines[l])){
                 console.log(variants[v]+' dcelab PASS');
+                stat[variants[v]]['dcelab']='RUNPASS';
+                console.log('stat :'+stat);
+                console.log('stat :'+JSON.stringify(stat));
                 fs.writeFileSync(workspace+'/result.'+variants[v]+'.dcelab.RUNPASS','',{
                   encoding  : 'utf8',
                   mode      : '0600',
@@ -392,6 +437,9 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
               }
               if(djregxfail.test(lines[l])){
                 console.log(variants[v]+' dcelab FAIL');
+                stat[variants[v]]['dcelab']='RUNFAIL';
+                console.log('stat :'+stat);
+                console.log('stat :'+JSON.stringify(stat));
                 fs.writeFileSync(workspace+'/result.'+variants[v]+'.dcelab.RUNFAIL','',{
                   encoding  : 'utf8',
                   mode      : '0600',
@@ -406,17 +454,20 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
             }
             else{
               console.log(variants[v]+' dcelab UNKNOWN');
+              stat[variants[v]]['dcelab']='RUNUNKNOWN';
+              console.log('stat :'+stat);
+              console.log('stat :'+JSON.stringify(stat));
               fs.writeFileSync(workspace+'/result.'+variants[v]+'.dcelab.RUNUNKNOWN','',{
                 encoding  : 'utf8',
                 mode      : '0600',
                 flag      : 'w'
               });
             }
-            checkifalldone(workspace,numberofresult,result1[0]);
+            checkifalldone(workspace,numberofresult,result1[0],stat);
           }
         });
       });
     }
   });
-  cron_check.stop();
+  //cron_check.stop();
 },null,true,'Asia/Chongqing');
