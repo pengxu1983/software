@@ -22,42 +22,81 @@ program.parse(process.argv);
 if(program.testlist)  {
   testlist  = program.testlist.split(',');
 }
-let username = child_process.execSync('whoami',{
-  encoding  : 'utf8'
-});
-let regx01  = /^(\w+)/;
-username.replace(regx01,function(rs,$1){
-  console.log($1);
-  username  = $1;
-});
-let hostname = child_process.execSync('hostname',{
-  encoding  : 'utf8'
-});
-regx01  = /^(\w+)/;
-hostname.replace(regx01,function(rs,$1){
-  console.log($1);
-  hostname  = $1;
-});
-let treeRoot = child_process.execSync('pwd',{
-  encoding  : 'utf8'
-});
-regx01  = /^(\S+)/;
-treeRoot.replace(regx01,function(rs,$1){
-  console.log($1);
-  treeRoot  = $1;
-});
-let lines = fs.readFileSync(treeRoot+'/configuration_id','utf8').split('\n');
-lines.pop();
-regx01  =/(\w+)\/(\w+)@(\w+)/;
+let regx01;
+//To get username
+let username;
+if(program.username){
+  username  = program.username;
+}
+else{
+  username  = child_process.execSync('whoami',{
+    encoding  : 'utf8'
+  });
+  regx01  = /^(\w+)/;
+  username.replace(regx01,function(rs,$1){
+    console.log($1);
+    username  = $1;
+  });
+}
+//To get hostname
+let hostname;
+if(program.hostname){
+  hostname  = program.hostname;
+}
+else{
+  hostname = child_process.execSync('hostname',{
+    encoding  : 'utf8'
+  });
+  regx01  = /^(\w+)/;
+  hostname.replace(regx01,function(rs,$1){
+    console.log($1);
+    hostname  = $1;
+  });
+}
+//To get treeRoot
+let treeRoot;
+if(program.treeRoot){
+  treeRoot  = program.treeRoot;
+}
+else{
+  treeRoot = child_process.execSync('pwd',{
+    encoding  : 'utf8'
+  });
+  regx01  = /^(\S+)/;
+  treeRoot.replace(regx01,function(rs,$1){
+    console.log($1);
+    treeRoot  = $1;
+  });
+}
+//To get codeline branch_name
 let codeline;
 let branch_name;
 let changelist;
-lines[0].replace(regx01,function(rs,$1,$2,$3){
-  codeline  = $1;
-  branch_name = $2;
-  changelist  = $3;
-});
-
+if(program.codeline){
+  codeline  = program.codeline;
+}
+else{
+  if(!fs.existsSync(treeRoot+'/configuration_id')){
+    throw "need correct treeRoot setting";
+  }
+  let lines = fs.readFileSync(treeRoot+'/configuration_id','utf8').split('\n');
+  lines.pop();
+  regx01  =/(\w+)\/(\w+)@(\w+)/;
+  lines[0].replace(regx01,function(rs,$1,$2,$3){
+    codeline  = $1;
+    branch_name = $2;
+    changelist  = $3;
+    if(program.codeline){
+      codeline  = program.codeline;
+    }
+    if(program.branch_name){
+      branch_name = program.branch_name;
+    }
+    if(program.changelist){
+      changelist  = program.changelist;
+    }
+  });
+}
 console.log(testlist);
 
 let postData = querystring.stringify({
