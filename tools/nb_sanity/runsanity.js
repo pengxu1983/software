@@ -90,6 +90,7 @@ let checkifalldone  = function(path,checknumber,result,stat){
           mailbody  +=  '   '+variantname+':\n';
           for(let taskname  in stat[variantname]){
             mailbody  +=  '     '+taskname+' : '+stat[variantname][taskname]+'\n';
+            mailbody  +=  '     see log: http://logviewer-atl/proj/cip_nbif_de_2/sanitycheck/'+result.codeline+'.'+result.branch_name+'.'+result.username+'.'+result.shelve+'\n'
           }
           mailbody  +=  '\n';
         }
@@ -98,6 +99,23 @@ let checkifalldone  = function(path,checknumber,result,stat){
         encoding  : 'utf8',
         mode      : '0600',
         flag      : 'w'
+      });
+      child_process.exec('mutt '+email+' -s [NBIF][SanityCheck]['+overallstat+'][codeline:'+result.codeline+'][branch_name:'+result.branch_name+'][shelve:'+result.shelve+'] < '+path+'/report',function(err,stdout,stderr){
+        if(err){
+          console.log(err);
+        }
+        console.log('Email send to '+result.email);
+        if(overallstat  ==  'PASS'){
+          child_process.execSync('mv '+path+' '+path+'.remove');
+          child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_S_cln -R "rusage[mem=2000] select[type==RHEL7_64]" rm -rf '+path+'.remove',function(err,stdout,stderr){
+          });
+        }
+        else{
+          setTimeout(function(){
+            child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_S_cln -R "rusage[mem=2000] select[type==RHEL7_64]" rm -rf '+path+'.remove',function(err,stdout,stderr){
+            });
+          },24*3600*1000);
+        }
       });
     }
   });
@@ -182,6 +200,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       casesynctext += 'rt_login\n';
       casesynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
       casesynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
+      casesynctext += 'p4 resolve -as\n';
       fs.writeFileSync(treeRoot+'.sync.script',casesynctext,{
         encoding  : 'utf8',
         mode      : '0700',
@@ -197,6 +216,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       dcelabsynctext += 'rt_login\n';
       dcelabsynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
       dcelabsynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
+      dcelabsynctext += 'p4 resolve -as\n';
       fs.writeFileSync(dcelabRoot+'.sync.script',dcelabsynctext,{
         encoding  : 'utf8',
         mode      : '0700',
