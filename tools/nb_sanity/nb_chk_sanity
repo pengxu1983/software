@@ -15,7 +15,7 @@ program
  .option('-u, --username <type>', 'username')
  .option('-b, --branch_name <type>', 'branch_name')
  .option('-l, --changelist <type>', 'changelist')
- .option('-r, --treeroot <type>', 'treeroot')
+ .option('-r, --treeRoot <type>', 'treeRoot')
  .option('-h, --hostname <type>', 'hostname')
  .option('-cid, --configuration_id <type>', 'hostname');
 program.parse(process.argv);
@@ -34,7 +34,7 @@ else{
   });
   regx01  = /^(\w+)/;
   username.replace(regx01,function(rs,$1){
-    console.log($1);
+    console.log('username :'+$1);
     username  = $1;
   });
 }
@@ -49,7 +49,7 @@ else{
   });
   regx01  = /^(\w+)/;
   hostname.replace(regx01,function(rs,$1){
-    console.log($1);
+    console.log('hostname :'+$1);
     hostname  = $1;
   });
 }
@@ -64,7 +64,7 @@ else{
   });
   regx01  = /^(\S+)/;
   treeRoot.replace(regx01,function(rs,$1){
-    console.log($1);
+    console.log('treeRoot :'+$1);
     treeRoot  = $1;
   });
 }
@@ -72,32 +72,27 @@ else{
 let codeline;
 let branch_name;
 let changelist;
-if(program.codeline){
-  codeline  = program.codeline;
+if(!fs.existsSync(treeRoot+'/configuration_id')){
+  throw "need correct treeRoot setting";
 }
-else{
-  if(!fs.existsSync(treeRoot+'/configuration_id')){
-    throw "need correct treeRoot setting";
+let lines = fs.readFileSync(treeRoot+'/configuration_id','utf8').split('\n');
+lines.pop();
+regx01  =/(\w+)\/(\w+)@(\w+)/;
+lines[0].replace(regx01,function(rs,$1,$2,$3){
+  codeline  = $1;
+  branch_name = $2;
+  changelist  = $3;
+  if(program.codeline){
+    codeline  = program.codeline;
   }
-  let lines = fs.readFileSync(treeRoot+'/configuration_id','utf8').split('\n');
-  lines.pop();
-  regx01  =/(\w+)\/(\w+)@(\w+)/;
-  lines[0].replace(regx01,function(rs,$1,$2,$3){
-    codeline  = $1;
-    branch_name = $2;
-    changelist  = $3;
-    if(program.codeline){
-      codeline  = program.codeline;
-    }
-    if(program.branch_name){
-      branch_name = program.branch_name;
-    }
-    if(program.changelist){
-      changelist  = program.changelist;
-    }
-  });
-}
-console.log(testlist);
+  if(program.branch_name){
+    branch_name = program.branch_name;
+  }
+  if(program.changelist){
+    changelist  = program.changelist;
+  }
+});
+console.log('input testlist :'+testlist);
 
 let postData = querystring.stringify({
   'treeRoot'  : treeRoot,
@@ -122,14 +117,14 @@ let options = {
 };
 
 let req = http.request(options, (res) => {
-  console.log(`STATUS: ${res.statusCode}`);
-  console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+  //console.log(`STATUS: ${res.statusCode}`);
+  //console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
   res.setEncoding('utf8');
   res.on('data', (chunk) => {
-    console.log(`BODY: ${chunk}`);
+    //console.log(`BODY: ${chunk}`);
   });
   res.on('end', () => {
-    console.log('No more data in response.');
+    console.log('done.');
   });
 });
 
