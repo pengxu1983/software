@@ -55,7 +55,7 @@ let checkifalldone  = function(path,checknumber,result,stat){
       let sql = 'update sanityshelves set details=\''+JSON.stringify(stat)+'",resultlocation="'+path+'\',result="'+overallstat+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'"';
       connection.query(sql,function(err1,stdout1,stderr1){
         if(err1) {
-          console.log(err1);
+          console.log(result.shelve + ' ' +err1);
         }
       });
       connection.end();
@@ -65,10 +65,9 @@ let checkifalldone  = function(path,checknumber,result,stat){
       for(let l=0;l<lines.length;l++){
         if(regx.test(lines[l])){
           lines[l].replace(regx,function(rs,$1,$2){
-            //console.log($1,$2);
             if($1 ==  result.username){
               email = $2;
-              console.log('email '+email);
+              console.log(result.shelve+' email '+email);
             }
           });
         }
@@ -104,7 +103,7 @@ let checkifalldone  = function(path,checknumber,result,stat){
         if(err){
           console.log(err);
         }
-        console.log('Email send to '+result.email);
+        console.log(result.shelve+' Email send to '+result.email);
         if(overallstat  ==  'PASS'){
           child_process.execSync('mv '+path+' '+path+'.remove');
           child_process.exec('bsub -P bif-shub1 -q normal -Is -J nbif_S_cln -R "rusage[mem=2000] select[type==RHEL7_64]" rm -rf '+path+'.remove',function(err,stdout,stderr){
@@ -152,7 +151,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       return;
     }
     numberofresult  = variants.length + variants.length * JSON.parse(result1[0].testlist).length;
-    console.log('reports number '+numberofresult);
+    console.log(result1[0].shelve+' reports number '+numberofresult);
     let workspace = '/proj/cip_nbif_de_2/sanitycheck/'+result1[0].codeline+'.'+result1[0].branch_name+'.'+result1[0].username+'.'+result1[0].shelve;
     sql = 'update sanityshelves set result="RUNNING",resultlocation="'+workspace+'" where codeline="'+result1[0].codeline+'" and branch_name="'+result1[0].branch_name+'" and shelve="'+result1[0].shelve+'"';
     connection.query(sql,function(err2,result2){
