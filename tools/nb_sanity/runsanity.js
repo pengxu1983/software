@@ -28,20 +28,6 @@ let checkifalldone  = function(path,checknumber,result,stat){
         }
       }
     }
-    //for(let l=0;l<lines.length;l++){
-    //  let parts = lines[l].split('.');
-    //  stat[parts[1]]={};
-    //  stat[parts[1]][parts[2]]=parts[3];
-    //  if(parts[3] ==  'RUNFAIL'){
-    //    overallstat = 'FAIL';
-    //  }
-    //  if(parts[3] ==  'BUILDFAIL'){
-    //    overallstat = 'FAIL';
-    //  }
-    //  if(parts[3] ==  'RUNUNKNOWN'){
-    //    overallstat = 'FAIL';
-    //  }
-    //}
     if(lines.length ==  checknumber){
       let connection = mysql.createConnection({
         host     : 'atlvmysqldp19.amd.com',
@@ -119,13 +105,41 @@ let checkifalldone  = function(path,checknumber,result,stat){
     }
   });
 }
-
+let cron_rtlogin = new cronJob('1 18 * * * *',function(){
+  cron_check.stop();
+  child_process.execFile('~/nbifweb_client/software/tools/rtlogin',function(err,stdout,stderr){
+    if(err) {
+      throw err;
+    }
+    let regx  = /you must use a password/;
+    if(regx.test(stdout)){
+      console.log(stdout);
+      cron_check.start();
+    }
+    else{
+      child_process.execSync('rm -rf /home/benpeng/.jfrog/');
+      child_process.execFile('/home/benpeng/nbifweb_client/software/tools/rtlogin',function(err1,stdout1,stderr1){
+        if(err1) {
+          child_process.execSync('mutt Benny.Peng@amd.com -s [NBIF][Sanity][RTLOGINFAIL]');
+          throw err1;
+        }
+        if(regx.test(stdout)){
+          cron_check.start();
+        }
+        else{
+          child_process.execSync('mutt Benny.Peng@amd.com -s [NBIF][Sanity][RTLOGINFAIL]');
+          throw 'need fix';
+        }
+      });
+    }
+  });
+},null,true,'Asia/Chongqing');
 ////////////////////
 ////////////////////
 ////////////////////
 let cron_check = new cronJob('*/5 * * * * *',function(){
   let stat  = {};
-  console.log(moment().format('YYYYMMDDHHmmss'));
+  //console.log(moment().format('YYYYMMDDHHmmss'));
   let connection = mysql.createConnection({
     host     : 'atlvmysqldp19.amd.com',
     user     : 'nbif_ad',
@@ -145,11 +159,11 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     if(err1){
       console.log(err1);
     }
-    console.log(result1);
     if(result1.length ==  0){
       connection.end();
       return;
     }
+    console.log(result1);
     numberofresult  = variants.length + variants.length * JSON.parse(result1[0].testlist).length;
     console.log(result1[0].shelve+' reports number '+numberofresult);
     let workspace = '/proj/cip_nbif_de_2/sanitycheck/'+result1[0].codeline+'.'+result1[0].branch_name+'.'+result1[0].username+'.'+result1[0].shelve;
@@ -179,7 +193,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       mode      : '0700',
       flag      : 'w'
     });
-    child_process.execSync(workspace+'/rtlogin.script');
+    //child_process.execSync(workspace+'/rtlogin.script');
     for(let v=0;v<variants.length;v++){
       stat[variants[v]]={};
       //create trees
@@ -196,7 +210,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       casesynctext += 'cd '+treeRoot+'\n';
       //casesynctext += 'rm -rf ~/.jfrog/\n';
       //casesynctext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
-      casesynctext += 'rt_login\n';
+      //casesynctext += 'rt_login\n';
       casesynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
       casesynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
       casesynctext += 'p4 resolve -as\n';
@@ -212,7 +226,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       dcelabsynctext += 'cd '+dcelabRoot+'\n';
       //dcelabsynctext += 'rm -rf ~/.jfrog/\n';
       //dcelabsynctext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
-      dcelabsynctext += 'rt_login\n';
+      //dcelabsynctext += 'rt_login\n';
       dcelabsynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
       dcelabsynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
       dcelabsynctext += 'p4 resolve -as\n';
@@ -228,7 +242,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       buildtext += 'cd '+treeRoot+'\n';
       //buildtext += 'rm -rf ~/.jfrog/\n';
       //buildtext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
-      buildtext += 'rt_login\n';
+      //buildtext += 'rt_login\n';
       buildtext += 'bootenv -v '+variants[v]+'\n';
       buildtext += 'dj -l build.log -DUVM_VERBOSITY=UVM_LOW -m4 -DUSE_VRQ -DCGM -DSEED=12345678 run_test -s nbiftdl demo_test_0_nbif_all_rtl -a execute=off\n';
       fs.writeFileSync(treeRoot+'.build.script',buildtext,{
@@ -243,7 +257,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       rundcelabtext += 'cd '+dcelabRoot+'\n';
       //rundcelabtext += 'rm -rf ~/.jfrog/\n';
       //rundcelabtext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
-      rundcelabtext += 'rt_login\n';
+      //rundcelabtext += 'rt_login\n';
       rundcelabtext += 'bootenv -v '+variants[v]+'\n';
       if(variants[v]  ==  'nbif_draco_gpu'){
         rundcelabtext += "dj -l "+dcelabRoot+"/dcelab.log"+" -e 'releaseflow::dropflow(:rtl_drop).build(:rhea_drop,:rhea_dc)' -DPUBLISH_BLKS=nbif_shub_wrap_algfx\n";
@@ -299,7 +313,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
                   runcasetext += 'cd '+treeRoot+'\n';
                   //runcasetext += 'rm -rf ~/.jfrog/\n';
                   //runcasetext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
-                  runcasetext += 'rt_login\n';
+                  //runcasetext += 'rt_login\n';
                   runcasetext += 'bootenv -v '+variants[v]+'\n';
                   runcasetext += 'dj -l '+treeRoot+'/'+JSON.parse(result1[0].testlist)[t]+'.log -DUVM_VERBOSITY=UVM_LOW -m4 -DUSE_VRQ -DCGM -DSEED=12345678 run_test -s nbiftdl '+JSON.parse(result1[0].testlist)[t]+'_nbif_all_rtl -a run=only\n';
                   fs.writeFileSync(treeRoot+'.'+JSON.parse(result1[0].testlist)[t]+'.run.script',runcasetext,{
@@ -489,4 +503,4 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     }
   });
   //cron_check.stop();
-},null,true,'Asia/Chongqing');
+},null,false,'Asia/Chongqing');
