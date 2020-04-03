@@ -7,6 +7,11 @@ let process         = require('process');
 let cronJob         = require("cron").CronJob;
 let child_process   = require('child_process');
 let fs              = require('fs');
+let R = child_process.execSync('whoami',{
+  encoding  : 'utf8'
+}).split('\n');
+let whoami=R[0];
+console.log('whoami : '+R[0]);
 ////////////////////
 //checking function
 ////////////////////
@@ -38,7 +43,7 @@ let checkifalldone  = function(path,checknumber,result,stat){
       connection.connect(function(err){
         if(err) throw err;
       });
-      let sql = 'update sanityshelves set details=\''+JSON.stringify(stat)+'",resultlocation="'+path+'\',result="'+overallstat+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'"';
+      let sql = 'update sanityshelves set details=\''+JSON.stringify(stat)+'",resultlocation="'+path+'\',result="'+overallstat+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'" and username="'+result.username+'"';
       connection.query(sql,function(err1,stdout1,stderr1){
         if(err1) {
           console.log(result.shelve + ' ' +err1);
@@ -105,9 +110,9 @@ let checkifalldone  = function(path,checknumber,result,stat){
     }
   });
 }
-let cron_rtlogin = new cronJob('1 18 * * * *',function(){
+let cron_rtlogin = new cronJob('15 10 * * * *',function(){
   cron_check.stop();
-  child_process.execFile('~/nbifweb_client/software/tools/rtlogin',function(err,stdout,stderr){
+  child_process.exec('~/nbifweb_client/software/tools/rtlogin',function(err,stdout,stderr){
     if(err) {
       throw err;
     }
@@ -149,9 +154,12 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
   connection.connect(function(err){
     if(err) throw err;
   });
+  
   let sql = '';
   sql += 'select * from sanityshelves where ';
   sql += 'result="NOTSTARTED"';
+  sql += ' and ';
+  sql += 'username="'+whoami+'"';
   let variants  = ['nbif_nv10_gpu','nbif_draco_gpu','nbif_et_0','nbif_et_1','nbif_et_2'];
   let numberofresult ;
   let finishedreport =0;
