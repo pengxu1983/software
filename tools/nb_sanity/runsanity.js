@@ -175,7 +175,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     numberofresult  = variants.length + variants.length * JSON.parse(result1[0].testlist).length;
     console.log(result1[0].shelve+' reports number '+numberofresult);
     let workspace = '/proj/cip_nbif_de_2/sanitycheck/'+result1[0].codeline+'.'+result1[0].branch_name+'.'+result1[0].username+'.'+result1[0].shelve;
-    sql = 'update sanityshelves set result="RUNNING",resultlocation="'+workspace+'" where codeline="'+result1[0].codeline+'" and branch_name="'+result1[0].branch_name+'" and shelve="'+result1[0].shelve+'"';
+    sql = 'update sanityshelves set result="RUNNING",resultlocation="'+workspace+'" where codeline="'+result1[0].codeline+'" and branch_name="'+result1[0].branch_name+'" and shelve="'+result1[0].shelve+'" and username="'+result1[0].username+'"';
     connection.query(sql,function(err2,result2){
       if(err2){
         console.log(err2);
@@ -191,16 +191,16 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
         console.log(workspace+'.remove clean done');
       });
     }
-    let rtlogintext ='';
-    rtlogintext += '#!/tool/pandora64/bin/tcsh\n';
-    rtlogintext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
-    rtlogintext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
-    child_process.execSync('mkdir -p '+workspace);
-    fs.writeFileSync(workspace+'/rtlogin.script',rtlogintext,{
-      encoding  : 'utf8',
-      mode      : '0700',
-      flag      : 'w'
-    });
+    //let rtlogintext ='';
+    //rtlogintext += '#!/tool/pandora64/bin/tcsh\n';
+    //rtlogintext += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
+    //rtlogintext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
+    //child_process.execSync('mkdir -p '+workspace);
+    //fs.writeFileSync(workspace+'/rtlogin.script',rtlogintext,{
+    //  encoding  : 'utf8',
+    //  mode      : '0700',
+    //  flag      : 'w'
+    //});
     //child_process.execSync(workspace+'/rtlogin.script');
     for(let v=0;v<variants.length;v++){
       stat[variants[v]]={};
