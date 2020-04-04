@@ -110,7 +110,7 @@ let checkifalldone  = function(path,checknumber,result,stat){
     }
   });
 }
-let cron_rtlogin = new cronJob('15 10 * * * *',function(){
+let cron_rtlogin = new cronJob('15 27 * * * *',function(){
   cron_check.stop();
   child_process.exec('~/nbifweb_client/software/tools/rtlogin',function(err,stdout,stderr){
     if(err) {
@@ -221,7 +221,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       //casesynctext += 'rt_login\n';
       casesynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
       casesynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
-      casesynctext += 'p4 resolve -as\n';
+      casesynctext += 'p4 resolve -am\n';
       fs.writeFileSync(treeRoot+'.sync.script',casesynctext,{
         encoding  : 'utf8',
         mode      : '0700',
@@ -237,7 +237,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       //dcelabsynctext += 'rt_login\n';
       dcelabsynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
       dcelabsynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
-      dcelabsynctext += 'p4 resolve -as\n';
+      dcelabsynctext += 'p4 resolve -am\n';
       fs.writeFileSync(dcelabRoot+'.sync.script',dcelabsynctext,{
         encoding  : 'utf8',
         mode      : '0700',
