@@ -123,7 +123,7 @@ let cron_rtlogin = new cronJob('15 27 * * * *',function(){
     }
     else{
       child_process.execSync('rm -rf /home/benpeng/.jfrog/');
-      child_process.execFile('/home/benpeng/nbifweb_client/software/tools/rtlogin',function(err1,stdout1,stderr1){
+      child_process.exec('~/nbifweb_client/software/tools/rtlogin',function(err1,stdout1,stderr1){
         if(err1) {
           child_process.execSync('mutt Benny.Peng@amd.com -s [NBIF][Sanity][RTLOGINFAIL]');
           throw err1;
