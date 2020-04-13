@@ -12,10 +12,10 @@ let R = child_process.execSync('whoami',{
 }).split('\n');
 let whoami=R[0];
 console.log('whoami : '+R[0]);
-let HOME            = '/proj/cip_nbif_de_1/sanitycheck/';
-////////////////////
-//checking function
-////////////////////
+let HOME            = '/proj/cip_nbif_de_1/sanitychangelistcheck';
+let checknumber     = 3;
+//let branchs         = ['nbif2_0_main'];
+let refTrees        = ['/proj/cip_nbif_de_1/sanitychangelistcheck/nbif.ref.main'];
 let checkifalldone  = function(path,checknumber,result,stat){
   child_process.exec('ls '+path+'/result.* -d',function(err,stdout,stderr){
     console.log(stdout);
@@ -45,10 +45,10 @@ let checkifalldone  = function(path,checknumber,result,stat){
         if(err) throw err;
       });
       //let sql = 'update sanityshelves set details=\''+JSON.stringify(stat)+'",resultlocation="'+path+'\',result="'+overallstat+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'" and username="'+result.username+'"';
-      let sql = 'update sanityshelves set details=\''+JSON.stringify(stat)+'",resultlocation="'+path+'\',result="'+overallstat+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and shelve="'+result.shelve+'"';
+      let sql = 'update sanitychangelists set details=\''+JSON.stringify(stat)+'",resultlocation="'+path+'\',result="'+overallstat+'" where codeline="'+result.codeline+'" and branch_name="'+result.branch_name+'" and changelist="'+result.changelist+'"';
       connection.query(sql,function(err1,stdout1,stderr1){
         if(err1) {
-          console.log(result.shelve + ' ' +err1);
+          console.log(result.changelist+ ' ' +err1);
         }
       });
       connection.end();
@@ -60,7 +60,7 @@ let checkifalldone  = function(path,checknumber,result,stat){
           lines[l].replace(regx,function(rs,$1,$2){
             if($1 ==  result.username){
               email = $2;
-              console.log(result.shelve+' email '+email);
+              console.log(result.changelist+' email '+email);
             }
           });
         }
@@ -71,7 +71,8 @@ let checkifalldone  = function(path,checknumber,result,stat){
       mailbody  +=  '   Sanity check of :\n';
       mailbody  +=  '   codeline     :'+result.codeline+'\n';
       mailbody  +=  '   branch_name  :'+result.branch_name+'\n';
-      mailbody  +=  '   shelve       :'+result.shelve+'\n';
+      mailbody  +=  '   changelist   :'+result.changelist+'\n';
+      //mailbody  +=  '   shelve       :'+result.shelve+'\n';
       mailbody  +=  '   host         :'+result.hostname+'\n';
       mailbody  +=  '   treeRoot     :'+result.treeRoot+'\n';
       mailbody  +=  '   overall status is :\n';
@@ -82,7 +83,7 @@ let checkifalldone  = function(path,checknumber,result,stat){
           mailbody  +=  '   '+variantname+':\n';
           for(let taskname  in stat[variantname]){
             mailbody  +=  '     '+taskname+' : '+stat[variantname][taskname]+'\n';
-            mailbody  +=  '     see log: http://logviewer-atl/'+HOME+'/'+result.codeline+'.'+result.branch_name+'.'+result.username+'.'+result.shelve+'.'+variantname+'\n';
+            mailbody  +=  '     see log: http://logviewer-atl/'+HOME+'/'+result.codeline+'.'+result.branch_name+'.'+result.username+'.'+result.changelist+'.'+variantname+'\n';
           }
           mailbody  +=  '\n';
         }
@@ -92,11 +93,11 @@ let checkifalldone  = function(path,checknumber,result,stat){
         mode      : '0600',
         flag      : 'w'
       });
-      child_process.exec('mutt '+email+' -s [NBIF][SanityCheck]['+overallstat+'][codeline:'+result.codeline+'][branch_name:'+result.branch_name+'][shelve:'+result.shelve+'] < '+path+'/report',function(err,stdout,stderr){
+      child_process.exec('mutt Benny.Peng@amd.com -s [NBIF][SanityCheck]['+overallstat+'][codeline:'+result.codeline+'][branch_name:'+result.branch_name+'][changelist:'+result.changelist+'] < '+path+'/report',function(err,stdout,stderr){
         if(err){
           console.log(err);
         }
-        console.log(result.shelve+' Email send to '+result.email);
+        console.log(result.changelist+' Email send to '+result.email);
         let reverttext  = '';
         reverttext += 'cd '+path+'\n';
         reverttext += 'p4 revert ...\n';
@@ -122,39 +123,95 @@ let checkifalldone  = function(path,checknumber,result,stat){
     }
   });
 }
-let cron_rtlogin = new cronJob('0 08 * * * *',function(){
-  cron_check.stop();
-  child_process.exec('~/nbifweb_client/software/tools/rtlogin',function(err,stdout,stderr){
-    if(err) {
-      throw err;
-    }
-    let regx  = /you must use a password/;
-    if(regx.test(stdout)){
-      console.log(stdout);
-      cron_check.start();
-    }
-    else{
-      child_process.execSync('rm -rf /home/benpeng/.jfrog/');
-      child_process.exec('~/nbifweb_client/software/tools/rtlogin',function(err1,stdout1,stderr1){
-        if(err1) {
-          child_process.execSync('mutt Benny.Peng@amd.com -s [NBIF][Sanity][RTLOGINFAIL]');
-          throw err1;
-        }
-        if(regx.test(stdout)){
-          cron_check.start();
-        }
-        else{
-          child_process.execSync('mutt Benny.Peng@amd.com -s [NBIF][Sanity][RTLOGINFAIL]');
-          throw 'need fix';
-        }
+let cron_check = new cronJob('30 * * * * *',function(){
+  //Get changelists
+  for(let treeId  =0;treeId < refTrees.length;treeId++){
+    //one tree
+    //changelist get
+    
+    let text  ='';
+    text += '#!/tool/pandora64/bin/tcsh\n';
+    text += 'source /proj/verif_release_ro/cbwa_initscript/current/cbwa_init.csh\n';
+    text += 'cd '+refTrees[treeId]+'\n';
+    text += 'p4 changes -m'+checknumber+' ...#head\n';
+    fs.writeFileSync(refTrees[treeId]+'.script',text,{
+      encoding  : 'utf8',
+      mode      : '0700',
+      flag      : 'w'
+    });
+    let changelists =[];
+    let R = child_process.execSync(refTrees[treeId]+'.script',{
+      encoding  : 'utf8',
+    }).split('\n');
+    //delete
+    R.pop();
+    let regx1   = /Change (\d+) on (\d+\/\d+\/\d+) by (\w+)@.*/;
+    let regx2   = /(\w+)\/(\w+)@(\d+)/;
+    let codeline ;
+    let branch_name;
+    if(fs.existsSync(refTrees[treeId]+'/configuration_id')){
+      let lines = fs.readFileSync(refTrees[treeId]+'/configuration_id','utf8').split('\n');
+      lines[0].replace(regx2,function(rs,$1,$2,$3){
+        codeline  = $1;
+        branch_name = $2;
       });
     }
-  });
+    else{
+      throw "no configuration_id";
+    }
+    for(let cl=0;cl<R.length;cl++){
+      R[cl].replace(regx1,function(rs,$1,$2,$3){
+        changelists.push({
+          changelist  : $1,
+          submitdate  : $2,
+          username    : $3,
+          codeline    : codeline,
+          branch_name : branch_name
+        });
+      });
+    }
+    console.log(changelists);
+    for(let c=0;c<changelists.length;c++){
+      let sql= 'select * from sanitychangelists where ';
+      sql += 'changelist="'+changelists[c].changelist+'"';
+      sql += ' and ';
+      sql += 'codeline="'+changelists[c].codeline+'"';
+      sql += ' and ';
+      sql += 'branch_name="'+changelists[c].branch_name+'"';
+      let connection = mysql.createConnection({
+        host     : 'atlvmysqldp19.amd.com',
+        user     : 'nbif_ad',
+        password : 'WqyaSp90*',
+        database : 'nbif_management_db'
+      });
+      connection.connect(function(err){
+        if(err) {
+          connection.connect(function(err1){
+            if(err1) throw err1;
+          })
+        }
+        connection.query(sql,function(err1,stdout1,stderr1){
+          if(err1){
+            console.log(err1);
+          }
+          if(stdout1.length ==  0){
+            sql = "insert into sanitychangelists (codeline,branch_name,changelist,username,result,resultlocation,details,testlist,createdAt,updatedAt) values ("+"'"+changelists[c].codeline+"',"+"'"+changelists[c].branch_name+"',"+"'"+changelists[c].changelist+"',"+"'"+changelists[c].username+"','NOTSTARTED','NA','NA','"+JSON.stringify(['demo_test_0','demo_test_1','demo_test_2'])+"','"+moment().format("x")+"','"+moment().format("x")+"')";
+            connection.query(sql,function(err2,stdout2,stderr2){
+              if(err2) throw err2;
+              console.log('created ');
+              connection.end();
+            });
+          }
+          else{
+            console.log('no action');
+            connection.end();
+          }
+        });
+      });
+    }
+  }
 },null,true,'Asia/Chongqing');
-////////////////////
-////////////////////
-////////////////////
-let cron_check = new cronJob('*/5 * * * * *',function(){
+let cron_runsanity = new cronJob('*/5 * * * * *',function(){
   let stat  = {};
   //console.log(moment().format('YYYYMMDDHHmmss'));
   let connection = mysql.createConnection({
@@ -168,7 +225,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
   });
   
   let sql = '';
-  sql += 'select * from sanityshelves where ';
+  sql += 'select * from sanitychangelists where ';
   sql += 'result="NOTSTARTED"';
   //sql += ' and ';
   //sql += 'username="'+whoami+'"';
@@ -184,11 +241,12 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       return;
     }
     console.log(result1);
-    numberofresult  = variants.length + variants.length * JSON.parse(result1[0].testlist).length;
-    console.log(result1[0].shelve+' reports number '+numberofresult);
-    let workspace = HOME+'/'+result1[0].codeline+'.'+result1[0].branch_name+'.'+result1[0].username+'.'+result1[0].shelve;
+    //numberofresult  = variants.length + variants.length * JSON.parse(result1[0].testlist).length;
+    numberofresult  = 20;
+    console.log(result1[0].changelist+' reports number '+numberofresult);
+    let workspace = HOME+'/'+result1[0].codeline+'.'+result1[0].branch_name+'.'+result1[0].username+'.'+result1[0].changelist;
     //sql = 'update sanityshelves set result="RUNNING",resultlocation="'+workspace+'" where codeline="'+result1[0].codeline+'" and branch_name="'+result1[0].branch_name+'" and shelve="'+result1[0].shelve+'" and username="'+result1[0].username+'"';
-    sql = 'update sanityshelves set result="RUNNING",resultlocation="'+workspace+'" where codeline="'+result1[0].codeline+'" and branch_name="'+result1[0].branch_name+'" and shelve="'+result1[0].shelve+'"';
+    sql = 'update sanitychangelists set result="RUNNING",resultlocation="'+workspace+'" where codeline="'+result1[0].codeline+'" and branch_name="'+result1[0].branch_name+'" and changelist="'+result1[0].changelist+'"';
     connection.query(sql,function(err2,result2){
       if(err2){
         console.log(err2);
@@ -232,12 +290,12 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       //casesynctext += 'rm -rf ~/.jfrog/\n';
       //casesynctext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
       //casesynctext += 'rt_login\n';
-      casesynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
-      casesynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
-      casesynctext += 'p4 resolve -am\n';
-      casesynctext += 'bootenv -v '+variants[v]+'\n';
-      casesynctext += 'p4w sync_all\n';
-      casesynctext += 'p4 resolve -am\n';
+      casesynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+' -cl '+result1[0].changelist+'\n';
+      //casesynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
+      //casesynctext += 'p4 resolve -am\n';
+      //casesynctext += 'bootenv -v '+variants[v]+'\n';
+      //casesynctext += 'p4w sync_all\n';
+      //casesynctext += 'p4 resolve -am\n';
       fs.writeFileSync(treeRoot+'.sync.script',casesynctext,{
         encoding  : 'utf8',
         mode      : '0700',
@@ -251,12 +309,12 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
       //dcelabsynctext += 'rm -rf ~/.jfrog/\n';
       //dcelabsynctext += '/home/benpeng/nbifweb_client/software/tools/rtlogin\n';
       //dcelabsynctext += 'rt_login\n';
-      dcelabsynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+'\n';
-      dcelabsynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
-      dcelabsynctext += 'p4 resolve -am\n';
-      dcelabsynctext += 'bootenv -v '+variants[v]+'\n';
-      dcelabsynctext += 'p4w sync_all\n';
-      dcelabsynctext += 'p4 resolve -am\n';
+      dcelabsynctext += 'p4_mkwa -codeline '+result1[0].codeline+' -branch_name '+result1[0].branch_name+' -cl '+result1[0].changelist+'\n';
+      //dcelabsynctext += 'p4 unshelve -s '+result1[0].shelve+'\n';
+      //dcelabsynctext += 'p4 resolve -am\n';
+      //dcelabsynctext += 'bootenv -v '+variants[v]+'\n';
+      //dcelabsynctext += 'p4w sync_all\n';
+      //dcelabsynctext += 'p4 resolve -am\n';
       fs.writeFileSync(dcelabRoot+'.sync.script',dcelabsynctext,{
         encoding  : 'utf8',
         mode      : '0700',
@@ -531,4 +589,4 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     }
   });
   //cron_check.stop();
-},null,false,'Asia/Chongqing');
+},null,true,'Asia/Chongqing');
