@@ -73,8 +73,8 @@ let checkifalldone  = function(path,checknumber,result,stat){
       mailbody  +=  '   branch_name  :'+result.branch_name+'\n';
       mailbody  +=  '   changelist   :'+result.changelist+'\n';
       //mailbody  +=  '   shelve       :'+result.shelve+'\n';
-      mailbody  +=  '   host         :'+result.hostname+'\n';
-      mailbody  +=  '   treeRoot     :'+result.treeRoot+'\n';
+      //mailbody  +=  '   host         :'+result.hostname+'\n';
+      //mailbody  +=  '   treeRoot     :'+result.treeRoot+'\n';
       mailbody  +=  '   overall status is :\n';
       mailbody  +=  '      '+overallstat+'\n';
       if(overallstat  ==  'FAIL'){
@@ -83,7 +83,7 @@ let checkifalldone  = function(path,checknumber,result,stat){
           mailbody  +=  '   '+variantname+':\n';
           for(let taskname  in stat[variantname]){
             mailbody  +=  '     '+taskname+' : '+stat[variantname][taskname]+'\n';
-            mailbody  +=  '     see log: http://logviewer-atl/'+HOME+'/'+result.codeline+'.'+result.branch_name+'.'+result.username+'.'+result.changelist+'.'+variantname+'\n';
+            mailbody  +=  '     see log: http://logviewer-atl/'+HOME+'/'+result.codeline+'.'+result.branch_name+'.'+result.username+'.'+result.changelist+'/'+variantname+'\n';
           }
           mailbody  +=  '\n';
         }
@@ -98,27 +98,29 @@ let checkifalldone  = function(path,checknumber,result,stat){
           console.log(err);
         }
         console.log(result.changelist+' Email send to '+result.email);
-        let reverttext  = '';
-        reverttext += 'cd '+path+'\n';
-        reverttext += 'p4 revert ...\n';
-        fs.writeFileSync(path+'.revert.script',reverttext,{
-          encoding  : 'utf8',
-          mode      : '0700',
-          flag      : 'w'
+        //let reverttext  = '';
+        //reverttext += 'cd '+path+'\n';
+        //reverttext += 'p4 revert ...\n';
+        //fs.writeFileSync(path+'.revert.script',reverttext,{
+        //  encoding  : 'utf8',
+        //  mode      : '0700',
+        //  flag      : 'w'
+        //});
+        child_process.exec('bsub -P bif-shub2 -q regr_high -Is -J nbif_S_cln -R "rusage[mem=2000] select[type==RHEL7_64]" rm -rf '+path+'.remove',function(err,stdout,stderr){
         });
-        if(overallstat  ==  'PASS'){
-          child_process.execSync(path+'.revert.script');
-          child_process.execSync('mv '+path+' '+path+'.remove');
-          child_process.exec('bsub -P bif-shub2 -q regr_high -Is -J nbif_S_cln -R "rusage[mem=2000] select[type==RHEL7_64]" rm -rf '+path+'.remove',function(err,stdout,stderr){
-          });
-        }
-        else{
-          setTimeout(function(){
-            child_process.execSync(path+'.revert.script');
-            child_process.exec('bsub -P bif-shub2 -q regr_high -Is -J nbif_S_cln -R "rusage[mem=2000] select[type==RHEL7_64]" rm -rf '+path+'.remove',function(err,stdout,stderr){
-            });
-          },24*3600*1000);
-        }
+        //if(overallstat  ==  'PASS'){
+        //  //child_process.execSync(path+'.revert.script');
+        //  child_process.execSync('mv '+path+' '+path+'.remove');
+        //  child_process.exec('bsub -P bif-shub2 -q regr_high -Is -J nbif_S_cln -R "rusage[mem=2000] select[type==RHEL7_64]" rm -rf '+path+'.remove',function(err,stdout,stderr){
+        //  });
+        //}
+        //else{
+        //  setTimeout(function(){
+        //    child_process.execSync(path+'.revert.script');
+        //    child_process.exec('bsub -P bif-shub2 -q regr_high -Is -J nbif_S_cln -R "rusage[mem=2000] select[type==RHEL7_64]" rm -rf '+path+'.remove',function(err,stdout,stderr){
+        //    });
+        //  },24*3600*1000);
+        //}
       });
     }
   });
