@@ -14,7 +14,7 @@ let rtlogintime     = {
 };
 console.log(rtlogintime);
 let maxPS           = 20;
-let maxPSperson     = 4;
+let maxPSperson     = 3;
 let overallusage    = {};
 let djregxfail      = /dj exited with errors/;
 let djregxpass      = /dj exited successfully/;
@@ -70,6 +70,8 @@ let checkifdone     = function(overallstarttime,shelveobj, stat,path){
     console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+']'+shelveobj.shelve+' : releasing resource of '+shelveobj.username);
     overallusage[shelveobj.username]--;
     runningtasks--;
+    console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+']'+shelveobj.shelve+' : detailed usage is '+JSON.stringify(overallusage));
+    console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+']'+shelveobj.shelve+' : running tasks number is '+runningtasks);
     console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+']'+shelveobj.shelve+' : uploading to DB...');
     let connection = mysql.createConnection({
       host     : 'atlvmysqldp19.amd.com',
@@ -223,6 +225,7 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     database : 'nbif_management_db'
   });
   connection.connect(function(err){
+    console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+'] connection started');
     if(err) {
       console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+'] connection :'+err);
       return;
@@ -240,12 +243,15 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
     connection.query(sql,function(err1,result1){
       if(err1){
         console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+'] query '+err1);
+        connection.end();
+        console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+'] connection ended');
         return;
       }
       //pick up one result
       if(result1.length == 0){
         //console.log('no new shelve submitted');
         connection.end();
+        console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+'] connection ended');
       }
       else{
         console.log('new shelve(s) found');
@@ -276,10 +282,13 @@ let cron_check = new cronJob('*/5 * * * * *',function(){
         connection.query(updatesql,function(err2,result2){
           if(err2){
             console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+']'+pickedupshelve.shelve + ' : '+err2);
+            connection.end();
+            console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+'] connection ended');
           }
           console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+']'+pickedupshelve.shelve + ' : '+'DB update');
         });
         connection.end();
+        console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+'] connection ended');
         if(fs.existsSync(treeRoot)){
           console.log('[LOG]['+moment().format('YYYY-MM-DD HH:mm:ss')+']'+pickedupshelve.shelve + ' : '+treeRoot+'.rm is cleanning');
           child_process.execSync('mv '+treeRoot+' '+treeRoot+'.rm');
