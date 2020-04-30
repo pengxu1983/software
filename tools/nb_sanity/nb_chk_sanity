@@ -17,7 +17,7 @@ program
  .option('-l, --changelist <type>', 'changelist')
  .option('-r, --treeRoot <type>', 'treeRoot')
  .option('-h, --hostname <type>', 'hostname')
- .option('-cid, --configuration_id <type>', 'hostname');
+ .option('-cid, --configuration_id <type>', 'configuration_id');
 program.parse(process.argv);
 if(program.testlist)  {
   testlist  = program.testlist.split(',');
