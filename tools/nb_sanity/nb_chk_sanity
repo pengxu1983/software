@@ -5,6 +5,8 @@ let process         = require('process');
 let fs              = require('fs');
 let child_process   = require('child_process');
 let path;
+let site;
+
 
 let testlist  =[];
 
@@ -19,8 +21,24 @@ program
  .option('-r, --treeRoot <type>', 'treeRoot')
  .option('-h, --hostname <type>', 'hostname')
  .option('-k, --kill <type>', 'kill')
- .option('-cid, --configuration_id <type>', 'configuration_id');
+ .option('-cid, --configuration_id <type>', 'configuration_id')
+ .option('-man, --manual', 'manual');
 program.parse(process.argv);
+if(program.manual){
+  console.log('Manual of nbi_chk_sanity');
+  console.log('Souce code of this script is /home/benpeng/nbifweb_client/software/tools/nb_sanity/nb_chk_sanity');
+  console.log('Usage of this script is: ');
+  console.log('nb_chk_sanity -[option1] [value1] -[option2] [value2] ...');
+  console.log(' options:');
+  console.log('   -s,--shelve <shelve number> :');
+  console.log('     | shelve number should be a valid perforce shelve number.');
+  console.log('     | currently, script will not check its validity');
+  console.log('     | this is highly recommended to run after bootenv.');
+  console.log('     | eg : bootenv && nb_chk_sanity -s 12345678');
+  console.log('   -man,--manual:');
+  console.log('     | display this manual');
+  return;
+}
 let shelve;
 if(program.kill){
   path  = '/sanity/kill';
