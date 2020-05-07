@@ -4,6 +4,7 @@ let http            = require('http');
 let process         = require('process');
 let fs              = require('fs');
 let child_process   = require('child_process');
+let path;
 
 let testlist  =[];
 
@@ -17,8 +18,18 @@ program
  .option('-l, --changelist <type>', 'changelist')
  .option('-r, --treeRoot <type>', 'treeRoot')
  .option('-h, --hostname <type>', 'hostname')
+ .option('-k, --kill <type>', 'kill')
  .option('-cid, --configuration_id <type>', 'configuration_id');
 program.parse(process.argv);
+let shelve;
+if(program.kill){
+  path  = '/sanity/kill';
+  shelve= program.kill;
+}
+else if(program.shelve){
+  path  = '/sanity/check';
+  shelve= program.shelve;
+}
 if(program.testlist)  {
   testlist  = program.testlist.split(',');
 }
@@ -94,21 +105,23 @@ lines[0].replace(regx01,function(rs,$1,$2,$3){
 });
 console.log('input testlist :'+testlist);
 
+
 let postData = querystring.stringify({
   'treeRoot'  : treeRoot,
   'username'  : username,
   'hostname'  : hostname,
-  'shelve'    : program.shelve,
+  'shelve'    : shelve,
   'codeline'  : codeline,
   'branch_name': branch_name,
   'changelist': changelist,
   'testlist'  : JSON.stringify(testlist)
 });
 
+
 let options = {
   hostname: 'srdcws808',
   port: 9001,
-  path: '/sanity/check',
+  path: path,
   method: 'POST',
   headers: {
     'Content-Type': 'application/x-www-form-urlencoded',
@@ -116,15 +129,19 @@ let options = {
   }
 };
 
+let body  ='';
+
 let req = http.request(options, (res) => {
   //console.log(`STATUS: ${res.statusCode}`);
   //console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
   res.setEncoding('utf8');
   res.on('data', (chunk) => {
     //console.log(`BODY: ${chunk}`);
+    body  += chunk;
   });
   res.on('end', () => {
-    console.log('done.');
+    let R = JSON.parse(body);
+    console.log(R.msg);
   });
 });
 
