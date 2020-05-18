@@ -6,8 +6,9 @@ let fs              = require('fs');
 let child_process   = require('child_process');
 let path;
 let site;
-
-
+let server  = {};
+server['srdc']  = 'srdcws808';
+server['atl']   = 'atletx7-neu001';
 let testlist  =[];
 
 const { program }   = require('commander');
@@ -80,6 +81,15 @@ else{
   hostname.replace(regx01,function(rs,$1){
     console.log('hostname :'+$1);
     hostname  = $1;
+    let regx02  = /srdc/;
+    let regx03  = /atl/;
+    if(regx02.test(hostname)){
+      site  = 'srdc';
+    }
+    if(regx03.test(hostname)){
+      site  = 'atl'
+    }
+    console.log('site :'+site);
   });
 }
 //To get treeRoot
@@ -123,50 +133,58 @@ lines[0].replace(regx01,function(rs,$1,$2,$3){
 });
 console.log('input testlist :'+testlist);
 
-
-let postData = querystring.stringify({
-  'treeRoot'  : treeRoot,
-  'username'  : username,
-  'hostname'  : hostname,
-  'shelve'    : shelve,
-  'codeline'  : codeline,
-  'branch_name': branch_name,
-  'changelist': changelist,
-  'testlist'  : JSON.stringify(testlist)
-});
-
-
-let options = {
-  hostname: 'srdcws808',
-  port: 9001,
-  path: path,
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Content-Length': Buffer.byteLength(postData)
+child_process.exec('cd '+treeRoot+' && /tool/pandora64/bin/p4 describe -s '+shelve,function(err,stdout,stderr){
+  if(stderr){
+    console.log(stderr);
   }
-};
-
-let body  ='';
-
-let req = http.request(options, (res) => {
-  //console.log(`STATUS: ${res.statusCode}`);
-  //console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-  res.setEncoding('utf8');
-  res.on('data', (chunk) => {
-    //console.log(`BODY: ${chunk}`);
-    body  += chunk;
-  });
-  res.on('end', () => {
-    let R = JSON.parse(body);
-    console.log(R.msg);
-  });
+  else{
+    let postData = querystring.stringify({
+      'treeRoot'  : treeRoot,
+      'username'  : username,
+      'hostname'  : hostname,
+      'shelve'    : shelve,
+      'codeline'  : codeline,
+      'branch_name': branch_name,
+      'changelist': changelist,
+      'testlist'  : JSON.stringify(testlist)
+    });
+    
+    
+    let options = {
+      hostname: server[site],
+      port: 9010,
+      path: path,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    };
+    
+    let body  ='';
+    
+    let req = http.request(options, (res) => {
+      //console.log(`STATUS: ${res.statusCode}`);
+      //console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        //console.log(`BODY: ${chunk}`);
+        body  += chunk;
+      });
+      res.on('end', () => {
+        let R = JSON.parse(body);
+        console.log(R.msg);
+      });
+    });
+    
+    req.on('error', (e) => {
+      console.error(`problem with request: ${e.message}`);
+    });
+    
+    // Write data to request body
+    req.write(postData);
+    req.end();
+  }
 });
 
-req.on('error', (e) => {
-  console.error(`problem with request: ${e.message}`);
-});
 
-// Write data to request body
-req.write(postData);
-req.end();
