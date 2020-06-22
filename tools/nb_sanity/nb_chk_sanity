@@ -22,6 +22,7 @@ program
  .option('-r, --treeRoot <type>', 'treeRoot')
  .option('-h, --hostname <type>', 'hostname')
  .option('-k, --kill <type>', 'kill')
+ .option('-d, --describe <type>', 'describe string')
  .option('-cid, --configuration_id <type>', 'configuration_id')
  .option('-man, --manual', 'manual');
 program.parse(process.argv);
@@ -35,7 +36,12 @@ if(program.manual){
   console.log('     | shelve number should be a valid perforce shelve number.');
   console.log('     | currently, script will not check its validity');
   console.log('     | this is highly recommended to run after bootenv.');
-  console.log('     | eg : bootenv && nb_chk_sanity -s 12345678');
+  console.log('     | eg : nb_chk_sanity -s 12345678');
+  console.log('   -d,--describe:');
+  console.log('     | identical name of a shelve. especially useful when you wish to kick off mutiple check with same shelve id');
+  console.log('     | eg : nb_chk_sanity -s 12345678 -d abc');
+  console.log('     |      nb_chk_sanity -s 12345678 -d def');
+  console.log('     |      after typing these two command, two sanity check will be kicked off with different ID names. Their result won\'t affect each other ');
   console.log('   -man,--manual:');
   console.log('     | display this manual');
   return;
@@ -46,10 +52,11 @@ if(program.kill){
   shelve= program.kill;
 }
 else if(program.shelve){
-  path  = '/sanity/check';
+  path  = '/clientrun';
   shelve= program.shelve;
 }
 if(program.testlist)  {
+  console.log(program.testlist);
   testlist  = program.testlist.split(',');
 }
 let regx01;
@@ -107,6 +114,14 @@ else{
     treeRoot  = $1;
   });
 }
+
+let describe;
+if(program.describe){
+  describe  = program.describe;
+}
+else{
+  describe  = 'default'
+}
 //To get codeline branch_name
 let codeline;
 let branch_name;
@@ -127,63 +142,83 @@ lines[0].replace(regx01,function(rs,$1,$2,$3){
   if(program.branch_name){
     branch_name = program.branch_name;
   }
-  if(program.changelist){
-    changelist  = program.changelist;
-  }
 });
-console.log('input testlist :'+testlist);
+console.log('input testlist :'+JSON.stringify(testlist));
 
 child_process.exec('cd '+treeRoot+' && /tool/pandora64/bin/p4 describe -s '+shelve,function(err,stdout,stderr){
   if(stderr){
     console.log(stderr);
   }
   else{
-    let postData = querystring.stringify({
-      'treeRoot'  : treeRoot,
-      'username'  : username,
-      'hostname'  : hostname,
-      'shelve'    : shelve,
-      'codeline'  : codeline,
-      'branch_name': branch_name,
-      'changelist': changelist,
-      'testlist'  : JSON.stringify(testlist)
-    });
-    
-    
-    let options = {
-      hostname: server[site],
-      port: 9010,
-      path: path,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(postData)
+    //get changelist
+    child_process.exec('cd '+treeRoot+' && /tool/pandora64/bin/p4 changes -m1 ...#head',function(err_cl,stdout_cl,stderr_cl){
+      if(err_cl){
+        console.log(err_cl);
       }
-    };
-    
-    let body  ='';
-    
-    let req = http.request(options, (res) => {
-      //console.log(`STATUS: ${res.statusCode}`);
-      //console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
-      res.setEncoding('utf8');
-      res.on('data', (chunk) => {
-        //console.log(`BODY: ${chunk}`);
-        body  += chunk;
-      });
-      res.on('end', () => {
-        let R = JSON.parse(body);
-        console.log(R.msg);
-      });
+      else if(stderr_cl){
+        console.log(stderr_cl)
+      }
+      else{
+        let regx  = /^Change (\d+)/;
+        if(program.changelist){
+          changelist  = program.changelist;
+        }
+        else{
+          stdout_cl.replace(regx,function(rs,$1){
+            changelist  = $1;
+            console.log('picking up changelist : '+changelist);
+          });
+        }
+        let postData = querystring.stringify({
+          'treeRoot'  : treeRoot,
+          'username'  : username,
+          'hostname'  : hostname,
+          'shelve'    : shelve,
+          'codeline'  : codeline,
+          'branch_name': branch_name,
+          'changelist': changelist,
+          'testlist'  : JSON.stringify(testlist),
+          'describe': describe
+        });
+        
+        
+        let options = {
+          hostname: server[site],
+          port: 9010,
+          path: path,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(postData)
+          }
+        };
+        
+        let body  ='';
+        
+        let req = http.request(options, (res) => {
+          //console.log(`STATUS: ${res.statusCode}`);
+          //console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => {
+            //console.log(`BODY: ${chunk}`);
+            body  += chunk;
+          });
+          res.on('end', () => {
+            let R = JSON.parse(body);
+            console.log(R.msg);
+          });
+        });
+        
+        req.on('error', (e) => {
+          console.error(`problem with request: ${e.message}`);
+        });
+        
+        // Write data to request body
+        req.write(postData);
+        req.end();
+      }
     });
     
-    req.on('error', (e) => {
-      console.error(`problem with request: ${e.message}`);
-    });
-    
-    // Write data to request body
-    req.write(postData);
-    req.end();
   }
 });
 
