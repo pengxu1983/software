@@ -6,9 +6,10 @@ let fs              = require('fs');
 let child_process   = require('child_process');
 let path;
 let site;
+let port=9010;
 let server  = {};
 server['srdc']  = 'srdcws808';
-server['atl']   = 'atletx7-neu001';
+server['atl']   = 'atletx7-neu003';
 let testlist  =[];
 
 const { program }   = require('commander');
@@ -84,7 +85,7 @@ else{
   hostname = child_process.execSync('hostname',{
     encoding  : 'utf8'
   });
-  regx01  = /^(\w+)/;
+  regx01  = /^(\S+)/;
   hostname.replace(regx01,function(rs,$1){
     console.log('hostname :'+$1);
     hostname  = $1;
@@ -92,9 +93,11 @@ else{
     let regx03  = /atl/;
     if(regx02.test(hostname)){
       site  = 'srdc';
+      port  = 7010;
     }
     if(regx03.test(hostname)){
-      site  = 'atl'
+      site  = 'atl';
+      port  = 7010;
     }
     console.log('site :'+site);
   });
@@ -183,8 +186,9 @@ child_process.exec('cd '+treeRoot+' && /tool/pandora64/bin/p4 describe -s '+shel
         
         
         let options = {
-          hostname: server[site],
-          port: 9010,
+          //hostname: server[site],
+          hostname: 'srdcws808',
+          port: 7010,
           path: path,
           method: 'POST',
           headers: {
